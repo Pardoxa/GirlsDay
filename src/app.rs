@@ -115,82 +115,78 @@ impl eframe::App for TemplateApp {
 
         let mut do_steps = 0;
 
-        egui::SidePanel::left("side_panel").show(ctx, |ui| {
-            ui.heading("Configurations");
-
-            ui.add(egui::Slider::new(zoom, 20.0..=2000.0).integer().text("Zoom"));
-            ui.add(egui::Slider::new(speed, 0.001..=1000.0).logarithmic(true).text("Speed"));
-            ui.add(egui::Slider::new(canvas_size, 0.0..=1.0).text("Canvas Size"));
-            ui.add(egui::Slider::new(step_limit, 1.0..=1e6).text("Step limit"));
-            ui.add(egui::Slider::new(seed, 0.0..=1e8).integer().text("Seed"));
-            ui.add(egui::Slider::new(num_of_walkers, 1.0..=1e2).integer().text("Number of walkers"));
-            if ui.add(egui::Button::new("Create walker")).clicked(){
-                let pcg = rand_pcg::Pcg64::seed_from_u64(*seed as u64);
-                let seed_iter = Uniform::new_inclusive(0, u64::MAX);
-
-                *walker = Some(
-                    seed_iter.sample_iter(pcg)
-                        .take(*num_of_walkers as usize)
-                        .map(
-                            |seed|
-                            {
-                                RandomWalker::new(seed)
-                            }
-                        ).collect()
-                );
-
-                *average = AverageDistance::default();
-            }
-            ui.horizontal(
+        egui::SidePanel::left("side_panel")
+            .default_width(300.0)
+            .show(ctx, |ui| {
+            egui::ScrollArea::both().show(
+                ui,
                 |ui|
                 {
-                    ui.label("Pick color 1");
-                    egui::color_picker::color_edit_button_srgba(ui, color1, egui::color_picker::Alpha::Opaque);
-                }
-            );
-            ui.horizontal(
-                |ui|
-                {
-                    ui.label("Pick color 2");
-                    egui::color_picker::color_edit_button_srgba(ui, color1_gradient, egui::color_picker::Alpha::Opaque);
-                }
-            );
-            ui.horizontal(
-                |ui|
-                {
-                    ui.label("Pick color 3");
-                    egui::color_picker::color_edit_button_srgba(ui, color2, egui::color_picker::Alpha::Opaque);
-                }
-            );
+                    ui.heading("Configurations");
 
-            ui.radio_value(radio, RadioState::NoBias, "No Bias");
-            ui.radio_value(radio, RadioState::BiasedAwayFromOrigin, "Bias away from Origin");
-            ui.radio_value(radio, RadioState::BiasedTowardsOrigin, "Bias towards Origin");
-            ui.add(egui::Slider::new(strength_of_bias, 0.0..=0.5).logarithmic(true).text("Strength of Bias"));
-
-            if let Some(walker) = walker{
-                ui.add(egui::Slider::new(display_walker_id, 0.0..=((walker.len()-1) as f32)).integer().text("Display Walker"));
-            }
-
-            let old = *current_time as u64;
-            *current_time += *speed;
-            let new = *current_time as u64;
-            do_steps = new - old;
-
-
-            ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
-                ui.horizontal(|ui| {
-                    ui.spacing_mut().item_spacing.x = 0.0;
-                    ui.label("powered by ");
-                    ui.hyperlink_to("egui", "https://github.com/emilk/egui");
-                    ui.label(" and ");
-                    ui.hyperlink_to(
-                        "eframe",
-                        "https://github.com/emilk/egui/tree/master/crates/eframe",
+                    ui.add(egui::Slider::new(zoom, 20.0..=2000.0).integer().text("Zoom"));
+                    ui.add(egui::Slider::new(speed, 0.001..=1000.0).logarithmic(true).text("Speed"));
+                    ui.add(egui::Slider::new(canvas_size, 0.0..=1.0).text("Canvas Size"));
+                    ui.add(egui::Slider::new(step_limit, 1.0..=1e6).text("Step limit"));
+                    ui.add(egui::Slider::new(seed, 0.0..=1e8).integer().text("Seed"));
+                    ui.add(egui::Slider::new(num_of_walkers, 1.0..=1e2).integer().text("Number of walkers"));
+                    if ui.add(egui::Button::new("Create walker")).clicked(){
+                        let pcg = rand_pcg::Pcg64::seed_from_u64(*seed as u64);
+                        let seed_iter = Uniform::new_inclusive(0, u64::MAX);
+                    
+                        *walker = Some(
+                            seed_iter.sample_iter(pcg)
+                                .take(*num_of_walkers as usize)
+                                .map(
+                                    |seed|
+                                    {
+                                        RandomWalker::new(seed)
+                                    }
+                                ).collect()
+                        );
+                    
+                        *average = AverageDistance::default();
+                    }
+                    ui.horizontal(
+                        |ui|
+                        {
+                            ui.label("Pick color 1");
+                            egui::color_picker::color_edit_button_srgba(ui, color1, egui::color_picker::Alpha::Opaque);
+                        }
                     );
-                    ui.label(".");
-                });
-            });
+                    ui.horizontal(
+                        |ui|
+                        {
+                            ui.label("Pick color 2");
+                            egui::color_picker::color_edit_button_srgba(ui, color1_gradient, egui::color_picker::Alpha::Opaque);
+                        }
+                    );
+                    ui.horizontal(
+                        |ui|
+                        {
+                            ui.label("Pick color 3");
+                            egui::color_picker::color_edit_button_srgba(ui, color2, egui::color_picker::Alpha::Opaque);
+                        }
+                    );
+                
+                    ui.radio_value(radio, RadioState::NoBias, "No Bias");
+                    ui.radio_value(radio, RadioState::BiasedAwayFromOrigin, "Bias away from Origin");
+                    ui.radio_value(radio, RadioState::BiasedTowardsOrigin, "Bias towards Origin");
+                    ui.add(egui::Slider::new(strength_of_bias, 0.0..=0.5).logarithmic(true).text("Strength of Bias"));
+                
+                    if let Some(walker) = walker{
+                        ui.add(egui::Slider::new(display_walker_id, 0.0..=((walker.len()-1) as f32)).integer().text("Display Walker"));
+                    }
+                
+                    let old = *current_time as u64;
+                    *current_time += *speed;
+                    let new = *current_time as u64;
+                    do_steps = new - old;
+
+                    egui::warn_if_debug_build(ui);
+                }
+            );
+            
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
@@ -212,7 +208,7 @@ impl eframe::App for TemplateApp {
                         ui.vertical(
                             |ui|
                             {
-                                ui.label(format!("Picture of Random Walker {idx}"));
+                                ui.label(format!("Walker {idx}"));
 
                                 Frame::canvas(ui.style())
                                 .fill(Color32::BLACK)
@@ -346,10 +342,6 @@ impl eframe::App for TemplateApp {
 
                 );
             }
-
-            
-
-            egui::warn_if_debug_build(ui);
         });
 
         if false {
