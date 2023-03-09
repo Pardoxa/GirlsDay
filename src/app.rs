@@ -11,14 +11,9 @@ use egui::{
 
 use crate::random_walker::RandomWalker;
 
-/// We derive Deserialize/Serialize so we can persist app state on shutdown.
-#[derive(serde::Deserialize, serde::Serialize)]
-#[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct TemplateApp {
-    // Example stuff:
-    label: String,
 
-    walker: RandomWalker,
+    walker: Option<RandomWalker>,
 
     canvas_size: f32,
 
@@ -28,22 +23,25 @@ pub struct TemplateApp {
 
     zoom: f32,
 
-    old_mesh: Option<Mesh>
+    old_mesh: Option<Mesh>,
+
+    step_limit: f32,
+    seed: f32
 }
 
 impl Default for TemplateApp {
     fn default() -> Self {
 
-        let walker = RandomWalker::new(923410);
         Self {
             // Example stuff:
-            label: "Hello World!".to_owned(),
             zoom: 50.0,
             speed: 1.0,
             current_time: 0.0,
-            walker,
+            walker: None,
             canvas_size: 0.5,
-            old_mesh: None
+            old_mesh: None,
+            step_limit: 100000.0,
+            seed: 2391.0
         }
     }
 }
@@ -66,20 +64,23 @@ impl TemplateApp {
 impl eframe::App for TemplateApp {
     /// Called by the frame work to save state before shutdown.
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
-        eframe::set_value(storage, eframe::APP_KEY, self);
+        //eframe::set_value(storage, eframe::APP_KEY, self);
+
+        // DO NOT SAVE
     }
 
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        let Self { 
-            label, 
+        let Self {
             zoom, 
             walker, 
             speed,
             current_time,
             canvas_size,
-            old_mesh
+            old_mesh,
+            step_limit,
+            seed
         } = self;
         // Examples of how to create different panels and windows.
         // Pick whichever suits you.
@@ -106,6 +107,11 @@ impl eframe::App for TemplateApp {
             ui.add(egui::Slider::new(zoom, 20.0..=2000.0).integer().text("Zoom"));
             ui.add(egui::Slider::new(speed, 0.001..=100.0).logarithmic(true).text("Speed"));
             ui.add(egui::Slider::new(canvas_size, 0.0..=1.0).text("Canvas Size"));
+            ui.add(egui::Slider::new(step_limit, 1.0..=1e6).text("Step limit"));
+            ui.add(egui::Slider::new(seed, 0.0..=1e8).integer().text("Seed"));
+            if ui.add(egui::Button::new("Create walker")).clicked(){
+                *walker = Some(RandomWalker::new(*seed as u64));
+            }
 
             let old = *current_time as u64;
             *current_time += *speed;
@@ -138,45 +144,51 @@ impl eframe::App for TemplateApp {
                 "Source code."
             ));
 
-            ui.with_layout(
-                Layout::left_to_right(Align::TOP), 
-                |ui|
-                {
-                    
-                    Frame::canvas(ui.style())
-                        .fill(Color32::BLACK)
-                        .show(
-                            ui, 
-                            |ui|
-                            {
-                                ui.ctx().request_repaint();
-                                let min_len = ui.available_size().min_elem();
-                                let desired_canvas = Vec2 { x: min_len, y: min_len } * Vec2{x: *canvas_size, y: *canvas_size};
-
-                                let (response, painter) = ui
-                                    .allocate_painter(
-                                        desired_canvas, 
-                                        Sense::hover()
-                                    );
-
-                                let canvas_size = response.rect;
-                                for _ in 0..do_steps{
-                                    walker.random_step();
+            if let Some(walker) = walker{
+                ui.with_layout(
+                    Layout::left_to_right(Align::TOP), 
+                    |ui|
+                    {
+                        
+                        Frame::canvas(ui.style())
+                            .fill(Color32::BLACK)
+                            .show(
+                                ui, 
+                                |ui|
+                                {
+                                    ui.ctx().request_repaint();
+                                    let min_len = ui.available_size().min_elem();
+                                    let desired_canvas = Vec2 { x: min_len, y: min_len } * Vec2{x: *canvas_size, y: *canvas_size};
+    
+                                    let (response, painter) = ui
+                                        .allocate_painter(
+                                            desired_canvas, 
+                                            Sense::hover()
+                                        );
+    
+                                    let canvas_size = response.rect;
+                                    if walker.history.len() < *step_limit as usize{
+                                        for _ in 0..do_steps{
+                                            walker.random_step();
+                                        }
+                                    }
+                                    let mesh = if do_steps > 0 || old_mesh.is_none() {
+    
+                                        let mesh = crate::animation::calc_mesh(walker, canvas_size, *zoom);
+                                        *old_mesh = Some(mesh.clone());
+                                        mesh
+                                    } else {
+                                        old_mesh.as_ref().unwrap().clone()
+                                    };
+    
+                                    painter.add(mesh);
                                 }
-                                let mesh = if do_steps > 0 || old_mesh.is_none() {
+                            )
+                    }
+                );
+            }
 
-                                    let mesh = crate::animation::calc_mesh(walker, canvas_size, *zoom);
-                                    *old_mesh = Some(mesh.clone());
-                                    mesh
-                                } else {
-                                    old_mesh.as_ref().unwrap().clone()
-                                };
-
-                                painter.add(mesh);
-                            }
-                        )
-                }
-            );
+            
 
             egui::warn_if_debug_build(ui);
         });

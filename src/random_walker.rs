@@ -3,12 +3,11 @@ use core::panic;
 use std::collections::*;
 use rand_pcg::Pcg64;
 use rand::prelude::*;
-use serde::{Serialize, Deserialize};
 
 
 /// Ein "Struct" - quasi eine Sammlung von Variablen
 /// Hier von 2 ganzen Zahlen die als x und y koordinate dienen
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Position{
     // x koordinate - eine Ganze Zahl
     pub x: i32,
@@ -16,7 +15,7 @@ pub struct Position{
     pub y: i32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct History{
     pub vec: Vec<Position>,
     pub hash: HashSet<Position>
@@ -51,7 +50,7 @@ impl History{
 /// 
 /// Außerdem befindet sich hier noch ein Random Number Generator (RNG)
 /// der zur erzeugung von Zufallszahlen verwendet werden kann
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct RandomWalker{
     pub ort: Position,
     pub history: History,
@@ -106,10 +105,6 @@ impl RandomWalker
     /// links, unten oder oben laufen
     pub fn random_step(&mut self)
     {
-        if self.history.len() > 400000 {
-            // otherwise this vector would grow and grow and finally crash the program
-            return;
-        }
         let probability = self.get_random_number();
         let alter_ort = self.ort.clone();
 
