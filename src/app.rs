@@ -8,25 +8,22 @@ use egui::{
         Sense
     }, Mesh,
 };
+use rand::{SeedableRng, distributions::Uniform, prelude::Distribution};
 
 use crate::random_walker::RandomWalker;
 
 pub struct TemplateApp {
 
-    walker: Option<RandomWalker>,
-
+    walker: Option<Vec<RandomWalker>>,
     canvas_size: f32,
-
     speed: f32,
-
     current_time: f32,
-
     zoom: f32,
-
     old_mesh: Option<Mesh>,
-
     step_limit: f32,
-    seed: f32
+    seed: f32,
+    display_walker_id: f32,
+    num_of_walkers: f32
 }
 
 impl Default for TemplateApp {
@@ -41,7 +38,9 @@ impl Default for TemplateApp {
             canvas_size: 0.5,
             old_mesh: None,
             step_limit: 100000.0,
-            seed: 2391.0
+            seed: 2391.0,
+            display_walker_id: 0.0,
+            num_of_walkers: 1.0
         }
     }
 }
@@ -80,7 +79,9 @@ impl eframe::App for TemplateApp {
             canvas_size,
             old_mesh,
             step_limit,
-            seed
+            seed,
+            display_walker_id,
+            num_of_walkers
         } = self;
         // Examples of how to create different panels and windows.
         // Pick whichever suits you.
@@ -109,8 +110,25 @@ impl eframe::App for TemplateApp {
             ui.add(egui::Slider::new(canvas_size, 0.0..=1.0).text("Canvas Size"));
             ui.add(egui::Slider::new(step_limit, 1.0..=1e6).text("Step limit"));
             ui.add(egui::Slider::new(seed, 0.0..=1e8).integer().text("Seed"));
+            ui.add(egui::Slider::new(num_of_walkers, 1.0..=1e2).integer().text("Number of walkers"));
             if ui.add(egui::Button::new("Create walker")).clicked(){
-                *walker = Some(RandomWalker::new(*seed as u64));
+                let pcg = rand_pcg::Pcg64::seed_from_u64(*seed as u64);
+                let seed_iter = Uniform::new_inclusive(0, u64::MAX);
+
+                *walker = Some(
+                    seed_iter.sample_iter(pcg)
+                        .take(*num_of_walkers as usize)
+                        .map(
+                            |seed|
+                            {
+                                RandomWalker::new(seed)
+                            }
+                        ).collect()
+                );
+            }
+
+            if let Some(walker) = walker{
+                ui.add(egui::Slider::new(display_walker_id, 0.0..=((walker.len()-1) as f32)).integer().text("Display Walker"));
             }
 
             let old = *current_time as u64;
@@ -144,7 +162,7 @@ impl eframe::App for TemplateApp {
                 "Source code."
             ));
 
-            if let Some(walker) = walker{
+            if let Some(walker_vec) = walker{
                 ui.with_layout(
                     Layout::left_to_right(Align::TOP), 
                     |ui|
@@ -167,14 +185,17 @@ impl eframe::App for TemplateApp {
                                         );
     
                                     let canvas_size = response.rect;
-                                    if walker.history.len() < *step_limit as usize{
-                                        for _ in 0..do_steps{
-                                            walker.random_step();
+                                    for walker in walker_vec.iter_mut(){
+                                        if walker.history.len() < *step_limit as usize{
+                                            for _ in 0..do_steps{
+                                                walker.random_step();
+                                            }
                                         }
                                     }
+                                    
                                     let mesh = if do_steps > 0 || old_mesh.is_none() {
-    
-                                        let mesh = crate::animation::calc_mesh(walker, canvas_size, *zoom);
+                                        let idx = (*display_walker_id) as usize;
+                                        let mesh = crate::animation::calc_mesh(&walker_vec[idx], canvas_size, *zoom);
                                         *old_mesh = Some(mesh.clone());
                                         mesh
                                     } else {
