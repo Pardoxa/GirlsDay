@@ -1,5 +1,4 @@
 
-use std::collections::*;
 use rand_pcg::Pcg64;
 use rand::prelude::*;
 
@@ -17,7 +16,6 @@ pub struct Position{
 #[derive(Debug, Clone, Default)]
 pub struct History{
     pub vec: Vec<Position>,
-    pub hash: HashSet<Position>,
     pub distance_from_origin: Vec<f64>
 }
 
@@ -38,8 +36,7 @@ impl History{
     pub fn push(&mut self, pos: Position)
     {
         let distance_from_origin = ((pos.x * pos.x + pos.y*pos.y) as f64).sqrt();
-        self.vec.push(pos.clone());
-        self.hash.insert(pos);
+        self.vec.push(pos);
         self.distance_from_origin.push(distance_from_origin);
     }
 }

@@ -24,7 +24,10 @@ pub struct TemplateApp {
     seed: f32,
     display_walker_id: f32,
     num_of_walkers: f32,
-    average: AverageDistance
+    average: AverageDistance,
+    color1: Color32,
+    color1_gradient: Color32,
+    color2: Color32
 }
 
 impl Default for TemplateApp {
@@ -42,7 +45,10 @@ impl Default for TemplateApp {
             seed: 2391.0,
             display_walker_id: 0.0,
             num_of_walkers: 10.0,
-            average: AverageDistance::default()
+            average: AverageDistance::default(),
+            color1: Color32::from_rgb(80, 0, 161),
+            color1_gradient: Color32::from_rgb(254, 42, 42),
+            color2: Color32::DARK_RED
         }
     }
 }
@@ -84,7 +90,10 @@ impl eframe::App for TemplateApp {
             seed,
             display_walker_id,
             num_of_walkers,
-            average
+            average,
+            color1,
+            color2,
+            color1_gradient
         } = self;
         // Examples of how to create different panels and windows.
         // Pick whichever suits you.
@@ -119,6 +128,28 @@ impl eframe::App for TemplateApp {
 
                 *average = AverageDistance::default();
             }
+            ui.horizontal(
+                |ui|
+                {
+                    ui.label("Pick color 1");
+                    egui::color_picker::color_edit_button_srgba(ui, color1, egui::color_picker::Alpha::Opaque);
+                }
+            );
+            ui.horizontal(
+                |ui|
+                {
+                    ui.label("Pick color 2");
+                    egui::color_picker::color_edit_button_srgba(ui, color1_gradient, egui::color_picker::Alpha::Opaque);
+                }
+            );
+            ui.horizontal(
+                |ui|
+                {
+                    ui.label("Pick color 3");
+                    egui::color_picker::color_edit_button_srgba(ui, color2, egui::color_picker::Alpha::Opaque);
+                }
+            );
+            
 
             if let Some(walker) = walker{
                 ui.add(egui::Slider::new(display_walker_id, 0.0..=((walker.len()-1) as f32)).integer().text("Display Walker"));
@@ -191,11 +222,18 @@ impl eframe::App for TemplateApp {
                                             }
                                         }
                                         if do_steps > 0 && average.average_distance.len() < *step_limit as usize {
-                                            average.update_on_step_of_walkers(do_steps as usize, &walker_vec);
+                                            average.update_on_step_of_walkers(do_steps as usize, walker_vec);
                                         }
                                         
                                         let mesh = if do_steps > 0 || old_mesh.is_none() {
-                                            let mesh = crate::animation::calc_mesh(&walker_vec[idx], canvas_size, *zoom);
+                                            let mesh = crate::animation::calc_mesh(
+                                                &walker_vec[idx], 
+                                                canvas_size, 
+                                                *zoom,
+                                                *color1,
+                                                *color1_gradient,
+                                                *color2
+                                            );
                                             *old_mesh = Some(mesh.clone());
                                             mesh
                                         } else {
@@ -243,7 +281,9 @@ impl eframe::App for TemplateApp {
                                     ui, 
                                     |plot_ui|
                                     {
-                                        let line = Line::new(distance).name(format!("walker {idx}"));
+                                        let line = Line::new(distance)
+                                            .name(format!("walker {idx}"))
+                                            .color(*color2);
                                         plot_ui.line(line);
 
                                         let average_distance: PlotPoints = average
