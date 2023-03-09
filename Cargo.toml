@@ -1,5 +1,5 @@
 [package]
-name = "GirlsDay"
+name = "girls_day"
 version = "0.1.0"
 authors = ["yannick feld"]
 edition = "2021"

@@ -1,4 +1,3 @@
-use core::panic;
 
 use std::collections::*;
 use rand_pcg::Pcg64;

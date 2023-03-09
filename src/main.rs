@@ -1,4 +1,3 @@
-#![warn(clippy::all, rust_2018_idioms)]
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
 // When compiling natively:
@@ -11,7 +10,7 @@ fn main() -> eframe::Result<()> {
     eframe::run_native(
         "eframe template",
         native_options,
-        Box::new(|cc| Box::new(GirlsDay::TemplateApp::new(cc))),
+        Box::new(|cc| Box::new(girls_day::TemplateApp::new(cc))),
     )
 }
 
@@ -30,7 +29,7 @@ fn main() {
         eframe::start_web(
             "the_canvas_id", // hardcode it
             web_options,
-            Box::new(|cc| Box::new(GirlsDay::TemplateApp::new(cc))),
+            Box::new(|cc| Box::new(girls_day::TemplateApp::new(cc))),
         )
         .await
         .expect("failed to start eframe");
