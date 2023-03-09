@@ -1,9 +1,24 @@
+use egui::{
+    containers::Frame,
+    emath::Align,
+    {
+        Layout, 
+        Color32, 
+        Vec2,
+        Sense
+    },
+};
+
+use crate::random_walker::RandomWalker;
+
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct TemplateApp {
     // Example stuff:
     label: String,
+
+    walker: RandomWalker,
 
     // this how you opt-out of serialization of a member
     #[serde(skip)]
@@ -12,10 +27,13 @@ pub struct TemplateApp {
 
 impl Default for TemplateApp {
     fn default() -> Self {
+
+        let walker = RandomWalker::new(923410);
         Self {
             // Example stuff:
             label: "Hello World!".to_owned(),
             value: 2.7,
+            walker
         }
     }
 }
@@ -28,10 +46,9 @@ impl TemplateApp {
 
         // Load previous app state (if any).
         // Note that you must enable the `persistence` feature for this to work.
-        if let Some(storage) = cc.storage {
-            return eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
-        }
-
+        //if let Some(storage) = cc.storage {
+        //    return eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
+        //}
         Default::default()
     }
 }
@@ -45,8 +62,7 @@ impl eframe::App for TemplateApp {
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        let Self { label, value } = self;
-
+        let Self { label, value, walker } = self;
         // Examples of how to create different panels and windows.
         // Pick whichever suits you.
         // Tip: a good default choice is to just keep the `CentralPanel`.
@@ -95,12 +111,43 @@ impl eframe::App for TemplateApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             // The central panel the region left after adding TopPanel's and SidePanel's
 
-            ui.heading("eframe template");
+            ui.heading("Random Walker");
             ui.hyperlink("https://github.com/emilk/eframe_template");
             ui.add(egui::github_link_file!(
                 "https://github.com/emilk/eframe_template/blob/master/",
                 "Source code."
             ));
+
+            ui.with_layout(
+                Layout::left_to_right(Align::TOP), 
+                |ui|
+                {
+                    Frame::canvas(ui.style())
+                        .fill(Color32::BLACK)
+                        .show(
+                            ui, 
+                            |ui|
+                            {
+                                ui.ctx().request_repaint();
+                                let desired_canvas = ui.available_size() * Vec2{x:0.5, y:0.5};
+
+                                let (response, painter) = ui
+                                    .allocate_painter(
+                                        desired_canvas, 
+                                        Sense::hover()
+                                    );
+
+                                let canvas_size = response.rect;
+                                
+                                walker.random_step();
+                                let mesh = crate::animation::calc_mesh(walker, canvas_size, 50);
+
+                                painter.add(mesh);
+                            }
+                        )
+                }
+            );
+
             egui::warn_if_debug_build(ui);
         });
 
