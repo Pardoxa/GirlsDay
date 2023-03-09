@@ -53,7 +53,7 @@ impl History{
 pub struct RandomWalker{
     pub ort: Position,
     pub history: History,
-    pub rng: Pcg64
+    pub rng: Pcg64,
 }
 
 

@@ -6,7 +6,7 @@ use egui::{
         Color32, 
         Vec2,
         Sense
-    }, Mesh,
+    }, Mesh, plot::{Plot, Legend, PlotPoints, Line},
 };
 use rand::{SeedableRng, distributions::Uniform, prelude::Distribution};
 
@@ -88,18 +88,6 @@ impl eframe::App for TemplateApp {
         // Tip: a good default choice is to just keep the `CentralPanel`.
         // For inspiration and more examples, go to https://emilk.github.io/egui
 
-        #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
-        egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
-            // The top panel is often a good place for a menu bar:
-            egui::menu::bar(ui, |ui| {
-                ui.menu_button("File", |ui| {
-                    if ui.button("Quit").clicked() {
-                        _frame.close();
-                    }
-                });
-            });
-        });
-
         let mut do_steps = 0;
 
         egui::SidePanel::left("side_panel").show(ctx, |ui| {
@@ -155,57 +143,90 @@ impl eframe::App for TemplateApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             // The central panel the region left after adding TopPanel's and SidePanel's
 
-            ui.heading("Random Walker");
-            ui.hyperlink("https://github.com/emilk/eframe_template");
-            ui.add(egui::github_link_file!(
-                "https://github.com/emilk/eframe_template/blob/master/",
-                "Source code."
-            ));
+            //ui.heading("Random Walker");
+            //ui.hyperlink("https://github.com/emilk/eframe_template");
+            //ui.add(egui::github_link_file!(
+            //    "https://github.com/emilk/eframe_template/blob/master/",
+            //    "Source code."
+            //));
 
             if let Some(walker_vec) = walker{
                 ui.with_layout(
                     Layout::left_to_right(Align::TOP), 
                     |ui|
                     {
-                        
-                        Frame::canvas(ui.style())
-                            .fill(Color32::BLACK)
-                            .show(
-                                ui, 
-                                |ui|
-                                {
-                                    ui.ctx().request_repaint();
-                                    let min_len = ui.available_size().min_elem();
-                                    let desired_canvas = Vec2 { x: min_len, y: min_len } * Vec2{x: *canvas_size, y: *canvas_size};
-    
-                                    let (response, painter) = ui
-                                        .allocate_painter(
-                                            desired_canvas, 
-                                            Sense::hover()
-                                        );
-    
-                                    let canvas_size = response.rect;
-                                    for walker in walker_vec.iter_mut(){
-                                        if walker.history.len() < *step_limit as usize{
-                                            for _ in 0..do_steps{
-                                                walker.random_step();
+                        let idx = (*display_walker_id) as usize;
+                        ui.vertical(
+                            |ui|
+                            {
+                                ui.label(format!("Picture of Random Walker {idx}"));
+
+                                Frame::canvas(ui.style())
+                                .fill(Color32::BLACK)
+                                .show(
+                                    ui, 
+                                    |ui|
+                                    {
+                                        ui.ctx().request_repaint();
+                                        let min_len = ui.available_size().min_elem();
+                                        let desired_canvas = Vec2 { x: min_len, y: min_len } * Vec2{x: *canvas_size, y: *canvas_size};
+        
+                                        let (response, painter) = ui
+                                            .allocate_painter(
+                                                desired_canvas, 
+                                                Sense::hover()
+                                            );
+        
+                                        let canvas_size = response.rect;
+                                        for walker in walker_vec.iter_mut(){
+                                            if walker.history.len() < *step_limit as usize{
+                                                for _ in 0..do_steps{
+                                                    walker.random_step();
+                                                }
                                             }
                                         }
+                                        
+                                        let mesh = if do_steps > 0 || old_mesh.is_none() {
+                                            let mesh = crate::animation::calc_mesh(&walker_vec[idx], canvas_size, *zoom);
+                                            *old_mesh = Some(mesh.clone());
+                                            mesh
+                                        } else {
+                                            old_mesh.as_ref().unwrap().clone()
+                                        };
+        
+                                        painter.add(mesh);
                                     }
-                                    
-                                    let mesh = if do_steps > 0 || old_mesh.is_none() {
-                                        let idx = (*display_walker_id) as usize;
-                                        let mesh = crate::animation::calc_mesh(&walker_vec[idx], canvas_size, *zoom);
-                                        *old_mesh = Some(mesh.clone());
-                                        mesh
-                                    } else {
-                                        old_mesh.as_ref().unwrap().clone()
-                                    };
-    
-                                    painter.add(mesh);
-                                }
-                            )
+                                );
+                            }
+                        );
+                        
+                        
+                        let distance: PlotPoints = walker_vec[idx].history.vec
+                            .iter()
+                            .enumerate()
+                            .map(|(index, pos)| [index as f64, ((pos.x * pos.x + pos.y*pos.y) as f64).sqrt()])
+                            .collect();
+
+                        ui.vertical_centered(
+                            |ui|
+                            {
+                                ui.label("Distance from Origin");
+                                Plot::new("plot_average_etc")
+                                .include_x(0.0)
+                                .legend(Legend::default())
+                                .show(
+                                    ui, 
+                                    |plot_ui|
+                                    {
+                                        let line = Line::new(distance).name(format!("walker {idx}"));
+                                        plot_ui.line(line);
+                                    }
+                                );
+                            }
+                        );
+
                     }
+
                 );
             }
 
