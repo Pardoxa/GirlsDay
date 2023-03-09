@@ -1,5 +1,6 @@
 use core::panic;
 
+use std::collections::*;
 use rand_pcg::Pcg64;
 use rand::prelude::*;
 use serde::{Serialize, Deserialize};
@@ -7,12 +8,39 @@ use serde::{Serialize, Deserialize};
 
 /// Ein "Struct" - quasi eine Sammlung von Variablen
 /// Hier von 2 ganzen Zahlen die als x und y koordinate dienen
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct Position{
     // x koordinate - eine Ganze Zahl
-    pub x: i64,
+    pub x: i32,
     // y koordinate - eine Ganze Zahl
-    pub y: i64,
+    pub y: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct History{
+    pub vec: Vec<Position>,
+    pub hash: HashSet<Position>
+}
+
+impl History{
+    pub fn new() -> Self{
+        Self::default()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.vec.is_empty()
+    }
+
+    pub fn len(&self) -> usize 
+    {
+        self.vec.len()
+    }
+
+    pub fn push(&mut self, pos: Position)
+    {
+        self.vec.push(pos.clone());
+        self.hash.insert(pos);
+    }
 }
 
 /// Dies ist der "Random Walker"
@@ -26,7 +54,7 @@ pub struct Position{
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RandomWalker{
     pub ort: Position,
-    pub history: Vec<Position>,
+    pub history: History,
     pub rng: Pcg64
 }
 
@@ -55,7 +83,7 @@ impl RandomWalker
     pub fn new(seed: u64) -> Self {
         Self { 
             ort: Position { x: 0, y: 0 },
-            history: Vec::new(), 
+            history: History::new(), 
             rng: Pcg64::seed_from_u64(seed)
         }
     }
@@ -78,6 +106,10 @@ impl RandomWalker
     /// links, unten oder oben laufen
     pub fn random_step(&mut self)
     {
+        if self.history.len() > 400000 {
+            // otherwise this vector would grow and grow and finally crash the program
+            return;
+        }
         let probability = self.get_random_number();
         let alter_ort = self.ort.clone();
 

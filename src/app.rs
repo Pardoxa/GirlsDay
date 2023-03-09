@@ -6,7 +6,7 @@ use egui::{
         Color32, 
         Vec2,
         Sense
-    },
+    }, Mesh,
 };
 
 use crate::random_walker::RandomWalker;
@@ -20,9 +20,15 @@ pub struct TemplateApp {
 
     walker: RandomWalker,
 
-    // this how you opt-out of serialization of a member
-    #[serde(skip)]
-    value: f32,
+    canvas_size: f32,
+
+    speed: f32,
+
+    current_time: f32,
+
+    zoom: f32,
+
+    old_mesh: Option<Mesh>
 }
 
 impl Default for TemplateApp {
@@ -32,8 +38,12 @@ impl Default for TemplateApp {
         Self {
             // Example stuff:
             label: "Hello World!".to_owned(),
-            value: 2.7,
-            walker
+            zoom: 50.0,
+            speed: 1.0,
+            current_time: 0.0,
+            walker,
+            canvas_size: 0.5,
+            old_mesh: None
         }
     }
 }
@@ -62,7 +72,15 @@ impl eframe::App for TemplateApp {
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        let Self { label, value, walker } = self;
+        let Self { 
+            label, 
+            zoom, 
+            walker, 
+            speed,
+            current_time,
+            canvas_size,
+            old_mesh
+        } = self;
         // Examples of how to create different panels and windows.
         // Pick whichever suits you.
         // Tip: a good default choice is to just keep the `CentralPanel`.
@@ -80,18 +98,20 @@ impl eframe::App for TemplateApp {
             });
         });
 
+        let mut do_steps = 0;
+
         egui::SidePanel::left("side_panel").show(ctx, |ui| {
             ui.heading("Side Panel");
 
-            ui.horizontal(|ui| {
-                ui.label("Write something: ");
-                ui.text_edit_singleline(label);
-            });
+            ui.add(egui::Slider::new(zoom, 20.0..=2000.0).integer().text("Zoom"));
+            ui.add(egui::Slider::new(speed, 0.001..=100.0).logarithmic(true).text("Speed"));
+            ui.add(egui::Slider::new(canvas_size, 0.0..=1.0).text("Canvas Size"));
 
-            ui.add(egui::Slider::new(value, 0.0..=10.0).text("value"));
-            if ui.button("Increment").clicked() {
-                *value += 1.0;
-            }
+            let old = *current_time as u64;
+            *current_time += *speed;
+            let new = *current_time as u64;
+            do_steps = new - old;
+
 
             ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
                 ui.horizontal(|ui| {
@@ -122,6 +142,7 @@ impl eframe::App for TemplateApp {
                 Layout::left_to_right(Align::TOP), 
                 |ui|
                 {
+                    
                     Frame::canvas(ui.style())
                         .fill(Color32::BLACK)
                         .show(
@@ -129,7 +150,8 @@ impl eframe::App for TemplateApp {
                             |ui|
                             {
                                 ui.ctx().request_repaint();
-                                let desired_canvas = ui.available_size() * Vec2{x:0.5, y:0.5};
+                                let min_len = ui.available_size().min_elem();
+                                let desired_canvas = Vec2 { x: min_len, y: min_len } * Vec2{x: *canvas_size, y: *canvas_size};
 
                                 let (response, painter) = ui
                                     .allocate_painter(
@@ -138,9 +160,17 @@ impl eframe::App for TemplateApp {
                                     );
 
                                 let canvas_size = response.rect;
-                                
-                                walker.random_step();
-                                let mesh = crate::animation::calc_mesh(walker, canvas_size, 50);
+                                for _ in 0..do_steps{
+                                    walker.random_step();
+                                }
+                                let mesh = if do_steps > 0 || old_mesh.is_none() {
+
+                                    let mesh = crate::animation::calc_mesh(walker, canvas_size, *zoom);
+                                    *old_mesh = Some(mesh.clone());
+                                    mesh
+                                } else {
+                                    old_mesh.as_ref().unwrap().clone()
+                                };
 
                                 painter.add(mesh);
                             }
