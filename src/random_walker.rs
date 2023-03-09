@@ -118,6 +118,86 @@ impl RandomWalker
         }
         self.history.push(alter_ort);
     }
+
+    pub fn random_step_biased_away(&mut self, strength_of_bias: f64)
+    {
+        let probability = self.get_random_number();
+        let alter_ort = self.ort.clone();
+
+        if probability > 0.5{
+           #[allow(clippy::comparison_chain)]
+            let prob_p = if self.ort.x == 0{
+                0.5
+            }else if self.ort.x > 0 {
+                0.5+strength_of_bias
+            } else {
+                0.5-strength_of_bias
+            };
+            let prob = self.get_random_number();
+            if prob < prob_p {
+                self.ort.x += 1;
+            } else {
+                self.ort.x -= 1;
+            }
+
+        } else {
+            #[allow(clippy::comparison_chain)]
+            let prob_p = if self.ort.y == 0{
+                0.5
+            }else if self.ort.y > 0 {
+                0.5 + strength_of_bias
+            } else {
+                0.5 - strength_of_bias
+            };
+            let prob = self.get_random_number();
+            if prob < prob_p {
+                self.ort.y += 1;
+            } else {
+                self.ort.y -= 1;
+            }
+        }
+        self.history.push(alter_ort);
+    }
+
+    pub fn random_step_biased_to_origin(&mut self, strength_of_bias: f64)
+    {
+        let probability = self.get_random_number();
+        let alter_ort = self.ort.clone();
+
+        if probability > 0.5{
+           #[allow(clippy::comparison_chain)]
+            let prob_p = if self.ort.x == 0{
+                0.5
+            }else if self.ort.x > 0 {
+                0.5 - strength_of_bias
+            } else {
+                0.5 + strength_of_bias
+            };
+            let prob = self.get_random_number();
+            if prob < prob_p {
+                self.ort.x += 1;
+            } else {
+                self.ort.x -= 1;
+            }
+
+        } else {
+            #[allow(clippy::comparison_chain)]
+            let prob_p = if self.ort.y == 0{
+                0.5
+            }else if self.ort.y > 0 {
+                0.5 - strength_of_bias
+            } else {
+                0.5 + strength_of_bias
+            };
+            let prob = self.get_random_number();
+            if prob < prob_p {
+                self.ort.y += 1;
+            } else {
+                self.ort.y -= 1;
+            }
+        }
+        self.history.push(alter_ort);
+    }
 }
 
 #[derive(Debug, Default, Clone)]

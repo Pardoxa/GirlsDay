@@ -12,6 +12,13 @@ use rand::{SeedableRng, distributions::Uniform, prelude::Distribution};
 
 use crate::random_walker::{RandomWalker, AverageDistance};
 
+#[derive(PartialEq)]
+pub enum RadioState{
+    NoBias,
+    BiasedTowardsOrigin,
+    BiasedAwayFromOrigin
+}
+
 pub struct TemplateApp {
 
     walker: Option<Vec<RandomWalker>>,
@@ -27,7 +34,9 @@ pub struct TemplateApp {
     average: AverageDistance,
     color1: Color32,
     color1_gradient: Color32,
-    color2: Color32
+    color2: Color32,
+    radio: RadioState,
+    strength_of_bias: f64
 }
 
 impl Default for TemplateApp {
@@ -48,7 +57,9 @@ impl Default for TemplateApp {
             average: AverageDistance::default(),
             color1: Color32::from_rgb(80, 0, 161),
             color1_gradient: Color32::from_rgb(254, 42, 42),
-            color2: Color32::DARK_RED
+            color2: Color32::DARK_RED,
+            radio: RadioState::NoBias,
+            strength_of_bias: 0.1
         }
     }
 }
@@ -93,7 +104,9 @@ impl eframe::App for TemplateApp {
             average,
             color1,
             color2,
-            color1_gradient
+            color1_gradient,
+            radio,
+            strength_of_bias
         } = self;
         // Examples of how to create different panels and windows.
         // Pick whichever suits you.
@@ -149,7 +162,11 @@ impl eframe::App for TemplateApp {
                     egui::color_picker::color_edit_button_srgba(ui, color2, egui::color_picker::Alpha::Opaque);
                 }
             );
-            
+
+            ui.radio_value(radio, RadioState::NoBias, "No Bias");
+            ui.radio_value(radio, RadioState::BiasedAwayFromOrigin, "Bias away from Origin");
+            ui.radio_value(radio, RadioState::BiasedTowardsOrigin, "Bias towards Origin");
+            ui.add(egui::Slider::new(strength_of_bias, 0.0..=0.5).logarithmic(true).text("Strength of Bias"));
 
             if let Some(walker) = walker{
                 ui.add(egui::Slider::new(display_walker_id, 0.0..=((walker.len()-1) as f32)).integer().text("Display Walker"));
@@ -214,13 +231,35 @@ impl eframe::App for TemplateApp {
                                             );
         
                                         let canvas_size = response.rect;
-                                        for walker in walker_vec.iter_mut(){
-                                            if walker.history.len() < *step_limit as usize{
-                                                for _ in 0..do_steps{
-                                                    walker.random_step();
+
+                                        match radio{
+                                            RadioState::NoBias => {
+                                                for walker in walker_vec.iter_mut(){
+                                                    if walker.history.len() < *step_limit as usize{
+                                                        for _ in 0..do_steps{
+                                                            walker.random_step();
+                                                        }
+                                                    }
+                                                }
+                                            },
+                                            _ => {
+                                                let step_fun = match radio {
+                                                    RadioState::BiasedAwayFromOrigin => RandomWalker::random_step_biased_away,
+                                                    RadioState::BiasedTowardsOrigin => RandomWalker::random_step_biased_to_origin,
+                                                    _ => unreachable!()
+                                                };
+
+                                                for walker in walker_vec.iter_mut(){
+                                                    if walker.history.len() < *step_limit as usize{
+                                                        for _ in 0..do_steps{
+                                                            step_fun(walker, *strength_of_bias);
+                                                        }
+                                                    }
                                                 }
                                             }
-                                        }
+                                        };
+
+                                        
                                         if do_steps > 0 && average.average_distance.len() < *step_limit as usize {
                                             average.update_on_step_of_walkers(do_steps as usize, walker_vec);
                                         }
