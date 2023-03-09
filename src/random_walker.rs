@@ -17,7 +17,8 @@ pub struct Position{
 #[derive(Debug, Clone, Default)]
 pub struct History{
     pub vec: Vec<Position>,
-    pub hash: HashSet<Position>
+    pub hash: HashSet<Position>,
+    pub distance_from_origin: Vec<f64>
 }
 
 impl History{
@@ -36,8 +37,10 @@ impl History{
 
     pub fn push(&mut self, pos: Position)
     {
+        let distance_from_origin = ((pos.x * pos.x + pos.y*pos.y) as f64).sqrt();
         self.vec.push(pos.clone());
         self.hash.insert(pos);
+        self.distance_from_origin.push(distance_from_origin);
     }
 }
 
@@ -117,5 +120,31 @@ impl RandomWalker
             self.ort.y -= 1;
         }
         self.history.push(alter_ort);
+    }
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct AverageDistance{
+    pub average_distance: Vec<f64>
+}
+
+impl AverageDistance{
+    pub fn update_on_step_of_walkers(&mut self, number_of_steps: usize, walkers: &[RandomWalker])
+    {
+        let mut sums = vec![0.0; number_of_steps];
+        let idx_start = walkers[0].history.len() - number_of_steps;
+        let num_of_walkers = walkers.len();
+
+        for walker in walkers{
+            let new_additions_slice = &walker.history.distance_from_origin[idx_start..];
+            for i in 0..sums.len()
+            {
+                sums[i] += new_additions_slice[i];
+            }
+        }
+        
+        sums.iter_mut()
+            .for_each(|val| *val /= num_of_walkers as f64);
+        self.average_distance.append(&mut sums);
     }
 }

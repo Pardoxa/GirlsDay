@@ -10,7 +10,7 @@ use egui::{
 };
 use rand::{SeedableRng, distributions::Uniform, prelude::Distribution};
 
-use crate::random_walker::RandomWalker;
+use crate::random_walker::{RandomWalker, AverageDistance};
 
 pub struct TemplateApp {
 
@@ -23,7 +23,8 @@ pub struct TemplateApp {
     step_limit: f32,
     seed: f32,
     display_walker_id: f32,
-    num_of_walkers: f32
+    num_of_walkers: f32,
+    average: AverageDistance
 }
 
 impl Default for TemplateApp {
@@ -31,16 +32,17 @@ impl Default for TemplateApp {
 
         Self {
             // Example stuff:
-            zoom: 50.0,
-            speed: 1.0,
+            zoom: 100.0,
+            speed: 10.0,
             current_time: 0.0,
             walker: None,
-            canvas_size: 0.5,
+            canvas_size: 0.6,
             old_mesh: None,
             step_limit: 100000.0,
             seed: 2391.0,
             display_walker_id: 0.0,
-            num_of_walkers: 1.0
+            num_of_walkers: 10.0,
+            average: AverageDistance::default()
         }
     }
 }
@@ -81,7 +83,8 @@ impl eframe::App for TemplateApp {
             step_limit,
             seed,
             display_walker_id,
-            num_of_walkers
+            num_of_walkers,
+            average
         } = self;
         // Examples of how to create different panels and windows.
         // Pick whichever suits you.
@@ -91,10 +94,10 @@ impl eframe::App for TemplateApp {
         let mut do_steps = 0;
 
         egui::SidePanel::left("side_panel").show(ctx, |ui| {
-            ui.heading("Side Panel");
+            ui.heading("Configurations");
 
             ui.add(egui::Slider::new(zoom, 20.0..=2000.0).integer().text("Zoom"));
-            ui.add(egui::Slider::new(speed, 0.001..=100.0).logarithmic(true).text("Speed"));
+            ui.add(egui::Slider::new(speed, 0.001..=1000.0).logarithmic(true).text("Speed"));
             ui.add(egui::Slider::new(canvas_size, 0.0..=1.0).text("Canvas Size"));
             ui.add(egui::Slider::new(step_limit, 1.0..=1e6).text("Step limit"));
             ui.add(egui::Slider::new(seed, 0.0..=1e8).integer().text("Seed"));
@@ -113,6 +116,8 @@ impl eframe::App for TemplateApp {
                             }
                         ).collect()
                 );
+
+                *average = AverageDistance::default();
             }
 
             if let Some(walker) = walker{
@@ -185,6 +190,9 @@ impl eframe::App for TemplateApp {
                                                 }
                                             }
                                         }
+                                        if do_steps > 0 && average.average_distance.len() < *step_limit as usize {
+                                            average.update_on_step_of_walkers(do_steps as usize, &walker_vec);
+                                        }
                                         
                                         let mesh = if do_steps > 0 || old_mesh.is_none() {
                                             let mesh = crate::animation::calc_mesh(&walker_vec[idx], canvas_size, *zoom);
@@ -199,12 +207,29 @@ impl eframe::App for TemplateApp {
                                 );
                             }
                         );
+
+                        let max_reached = walker_vec[idx].history.len();
+
+                        let step_size = max_reached as f64 / 1000.0;
+                        let factor = std::f64::consts::PI.sqrt() / 2.0;
+
+                        let analytical: Vec<_> = (0..1000_u32)
+                            .map(
+                                |i|
+                                {
+                                    let x = (i as f64) * step_size;
+                                    let y = x.sqrt() * factor;
+                                    [x,y]
+                                }
+                            ).collect();
                         
                         
-                        let distance: PlotPoints = walker_vec[idx].history.vec
+                        let distance: PlotPoints = walker_vec[idx]
+                            .history
+                            .distance_from_origin
                             .iter()
                             .enumerate()
-                            .map(|(index, pos)| [index as f64, ((pos.x * pos.x + pos.y*pos.y) as f64).sqrt()])
+                            .map(|(index, dist)| [index as f64, *dist])
                             .collect();
 
                         ui.vertical_centered(
@@ -220,6 +245,19 @@ impl eframe::App for TemplateApp {
                                     {
                                         let line = Line::new(distance).name(format!("walker {idx}"));
                                         plot_ui.line(line);
+
+                                        let average_distance: PlotPoints = average
+                                            .average_distance
+                                            .iter()
+                                            .enumerate()
+                                            .map(|(index, dist)| [index as f64, *dist])
+                                            .collect();
+
+                                        let line = Line::new(average_distance).name("average");
+                                        plot_ui.line(line);
+                                        let analytical_line = Line::new(analytical).name("analytical Results");
+                                        plot_ui.line(analytical_line);
+
                                     }
                                 );
                             }
