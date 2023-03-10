@@ -8,7 +8,8 @@ use egui::{
         Sense
     }, Mesh, plot::{Plot, Legend, PlotPoints, PlotPoint, Line},
 };
-use rand::{SeedableRng, distributions::Uniform, prelude::Distribution};
+use rand::SeedableRng;
+use rand_pcg::Pcg64;
 use rayon::prelude::*;
 use crate::animation::{MeshChangeTracker, PerformanceHint};
 use crate::random_walker::{RandomWalker, AverageDistance};
@@ -17,7 +18,8 @@ use crate::random_walker::{RandomWalker, AverageDistance};
 pub enum RadioState{
     NoBias,
     BiasedTowardsOrigin,
-    BiasedAwayFromOrigin
+    BiasedAwayFromOrigin,
+    YourFunction
 }
 
 
@@ -25,14 +27,14 @@ pub struct TemplateApp {
 
     walker: Option<Vec<RandomWalker>>,
     canvas_size: f32,
-    speed: f32,
-    current_time: f32,
+    speed: f64,
+    current_time: f64,
     zoom: f32,
     old_mesh: Option<Mesh>,
-    step_limit: f32,
-    seed: f32,
-    display_walker_id: f32,
-    num_of_walkers: f32,
+    step_limit: u64,
+    seed: u64,
+    display_walker_id: usize,
+    num_of_walkers: usize,
     average: AverageDistance,
     color1: Color32,
     color1_gradient: Color32,
@@ -54,10 +56,10 @@ impl Default for TemplateApp {
             walker: None,
             canvas_size: 0.6,
             old_mesh: None,
-            step_limit: 100000.0,
-            seed: 2391.0,
-            display_walker_id: 0.0,
-            num_of_walkers: 10.0,
+            step_limit: 100000,
+            seed: 2391,
+            display_walker_id: 0,
+            num_of_walkers: 10,
             average: AverageDistance::default(),
             color1: Color32::from_rgb(80, 0, 161),
             color1_gradient: Color32::from_rgb(254, 42, 42),
@@ -132,29 +134,40 @@ impl eframe::App for TemplateApp {
                 {
                     ui.heading("Configurations");
 
-                    if ui.add(egui::Slider::new(zoom, 20.0..=2000.0)
+                    if ui.add(egui::Slider::new(zoom, 20.0..=3000.0)
                         .integer()
                         .text("Zoom"))
                         .changed(){
                             mesh_change_tracker.request_redraw();
                     }
-                    ui.add(egui::Slider::new(speed, 0.001..=1000.0).logarithmic(true).text("Speed"));
+                    ui.add(egui::Slider::new(speed, 0.001..=2000.0).logarithmic(true).text("Speed"));
                     ui.add(egui::Slider::new(canvas_size, 0.0..=1.0).text("Canvas Size"));
-                    ui.add(egui::Slider::new(step_limit, 1.0..=1e6).text("Step limit"));
-                    ui.add(egui::Slider::new(seed, 0.0..=1e8).integer().text("Seed"));
-                    ui.add(egui::Slider::new(num_of_walkers, 1.0..=200.0).integer().text("Number of walkers"));
+                    ui.add(
+                        egui::Slider::new(step_limit, 1..=2000000)
+                            .text("Step limit")
+                            .drag_value_speed(10.0)
+                    );
+                    ui.add(egui::Slider::new(seed, 0..=10000)
+                        .text("Seed")
+                        .drag_value_speed(1.0)
+                    );
+                    ui.add(egui::Slider::new(num_of_walkers, 1..=200)
+                        .text("Number of walkers")
+                        .drag_value_speed(0.5)
+                    );
                     if ui.add(egui::Button::new("Create walker")).clicked(){
-                        let pcg = rand_pcg::Pcg64::seed_from_u64(*seed as u64);
-                        let seed_iter = Uniform::new_inclusive(0, u64::MAX);
+                        let mut pcg = rand_pcg::Pcg64::seed_from_u64(*seed);
                         *current_time = 0.0;
                         let capacity = *step_limit as usize;
                         *walker = Some(
-                            seed_iter.sample_iter(pcg)
-                                .take(*num_of_walkers as usize)
+                            (0..*num_of_walkers)
                                 .map(
-                                    |seed|
+                                    |_|
                                     {
-                                        RandomWalker::with_capacity(seed, capacity)
+                                        RandomWalker::with_capacity_and_rng(
+                                            Pcg64::from_rng(&mut pcg).unwrap(), 
+                                            capacity
+                                        )
                                     }
                                 ).collect()
                         );
@@ -187,12 +200,18 @@ impl eframe::App for TemplateApp {
                     ui.radio_value(radio, RadioState::NoBias, "No Bias");
                     ui.radio_value(radio, RadioState::BiasedAwayFromOrigin, "Bias away from Origin");
                     ui.radio_value(radio, RadioState::BiasedTowardsOrigin, "Bias towards Origin");
-                    ui.add(egui::Slider::new(strength_of_bias, 0.0..=0.5).logarithmic(true).text("Strength of Bias"));
+                    ui.radio_value(radio, RadioState::YourFunction, "Your function");
+                    ui.add(
+                        egui::Slider::new(strength_of_bias, 0.0..=0.5)
+                        .logarithmic(true)
+                        .text("Strength of Bias")
+                        .smallest_positive(0.0005)
+                    );
                 
                     if let Some(walker) = walker{
                         if ui
-                            .add(egui::Slider::new(display_walker_id, 0.0..=((walker.len()-1) as f32))
-                            .integer()
+                            .add(egui::Slider::new(display_walker_id, 0..=(walker.len()-1))
+                            .drag_value_speed(0.5)
                             .text("Display Walker"))
                             .changed(){
                             
@@ -229,7 +248,7 @@ impl eframe::App for TemplateApp {
                     Layout::left_to_right(Align::TOP), 
                     |ui|
                     {
-                        let idx = (*display_walker_id) as usize;
+                        let idx = *display_walker_id;
                         ui.vertical(
                             |ui|
                             {
@@ -271,6 +290,7 @@ impl eframe::App for TemplateApp {
                                                 let step_fun = match radio {
                                                     RadioState::BiasedAwayFromOrigin => RandomWalker::random_step_biased_away,
                                                     RadioState::BiasedTowardsOrigin => RandomWalker::random_step_biased_to_origin,
+                                                    RadioState::YourFunction => RandomWalker::your_step_function,
                                                     _ => unreachable!()
                                                 };
 

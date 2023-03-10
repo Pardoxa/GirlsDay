@@ -88,14 +88,15 @@ impl RandomWalker
     /// Sie Können diese funktion z.B. mit RandomWalker::new(1231) aufrufen,
     /// wobei 1231 dann als seed verwendet wird
     pub fn new(seed: u64) -> Self {
-        Self::with_capacity(seed, 100000)
+        let rng = Pcg64::seed_from_u64(seed);
+        Self::with_capacity_and_rng(rng, 100000)
     }
 
-    pub fn with_capacity(seed: u64, capacity: usize) -> Self{
+    pub fn with_capacity_and_rng(rng: Pcg64, capacity: usize) -> Self{
         Self { 
             ort: Position { x: 0, y: 0 },
             history: History::with_capacity(capacity), 
-            rng: Pcg64::seed_from_u64(seed)
+            rng
         }
     }
 
@@ -208,6 +209,40 @@ impl RandomWalker
             } else {
                 self.ort.y -= 1;
             }
+        }
+        self.history.push(alter_ort);
+    }
+
+    pub fn your_step_function(&mut self, _strength_of_bias: f64)
+    {
+        let probability = self.get_random_number();
+        let alter_ort = self.ort.clone();
+        if probability <= 0.125 {
+            self.ort.x += 1;
+            self.ort.y += 2;
+        } else if probability <= 0.25{
+            
+            self.ort.x += 1;
+            self.ort.y -= 2;
+            
+        } else if probability <= 0.375 {
+            self.ort.x -= 1;
+            self.ort.y -= 2;
+        } else if probability <= 0.5{
+            self.ort.x -= 1;
+            self.ort.y += 2;
+        } else if probability <= 0.625{
+            self.ort.y += 1;
+            self.ort.x += 2;
+        }else if probability <= 0.75{
+            self.ort.y += 1;
+            self.ort.x -= 2;
+        } else if probability <= 0.875 {
+            self.ort.y -= 1;
+            self.ort.x -= 2;
+        }else {
+            self.ort.y -= 1;
+            self.ort.x += 2;
         }
         self.history.push(alter_ort);
     }

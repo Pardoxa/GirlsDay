@@ -31,7 +31,7 @@ getrandom = { version = "0.2", features = ["js"] }
 
 [profile.release]
 opt-level = 3 # fast and small wasm
-lto=true
+#lto=true
 
 # Optimize all dependencies even in debug builds:
 [profile.dev.package."*"]

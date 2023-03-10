@@ -215,7 +215,7 @@ impl MeshChangeTracker{
 
     pub fn check_if_needs_redraw(
         &self, 
-        speed: f32,
+        speed: f64,
         priority: PerformanceHint
     ) -> bool
     {
