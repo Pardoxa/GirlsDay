@@ -6,10 +6,11 @@ use egui::{
         Color32, 
         Vec2,
         Sense
-    }, Mesh, plot::{Plot, Legend, PlotPoints, Line},
+    }, Mesh, plot::{Plot, Legend, PlotPoints, PlotPoint, Line},
 };
 use rand::{SeedableRng, distributions::Uniform, prelude::Distribution};
-
+use rayon::prelude::*;
+use crate::animation::{MeshChangeTracker, PerformanceHint};
 use crate::random_walker::{RandomWalker, AverageDistance};
 
 #[derive(PartialEq)]
@@ -18,6 +19,7 @@ pub enum RadioState{
     BiasedTowardsOrigin,
     BiasedAwayFromOrigin
 }
+
 
 pub struct TemplateApp {
 
@@ -36,7 +38,9 @@ pub struct TemplateApp {
     color1_gradient: Color32,
     color2: Color32,
     radio: RadioState,
-    strength_of_bias: f64
+    strength_of_bias: f64,
+    mesh_change_tracker: MeshChangeTracker,
+    perfomance_hint: PerformanceHint
 }
 
 impl Default for TemplateApp {
@@ -59,7 +63,9 @@ impl Default for TemplateApp {
             color1_gradient: Color32::from_rgb(254, 42, 42),
             color2: Color32::DARK_RED,
             radio: RadioState::NoBias,
-            strength_of_bias: 0.1
+            strength_of_bias: 0.1,
+            mesh_change_tracker: MeshChangeTracker::new(),
+            perfomance_hint: PerformanceHint::PrioritizeOptics
         }
     }
 }
@@ -106,7 +112,9 @@ impl eframe::App for TemplateApp {
             color2,
             color1_gradient,
             radio,
-            strength_of_bias
+            strength_of_bias,
+            mesh_change_tracker,
+            perfomance_hint
         } = self;
         // Examples of how to create different panels and windows.
         // Pick whichever suits you.
@@ -124,26 +132,33 @@ impl eframe::App for TemplateApp {
                 {
                     ui.heading("Configurations");
 
-                    ui.add(egui::Slider::new(zoom, 20.0..=2000.0).integer().text("Zoom"));
+                    if ui.add(egui::Slider::new(zoom, 20.0..=2000.0)
+                        .integer()
+                        .text("Zoom"))
+                        .changed(){
+                            mesh_change_tracker.request_redraw();
+                    }
                     ui.add(egui::Slider::new(speed, 0.001..=1000.0).logarithmic(true).text("Speed"));
                     ui.add(egui::Slider::new(canvas_size, 0.0..=1.0).text("Canvas Size"));
                     ui.add(egui::Slider::new(step_limit, 1.0..=1e6).text("Step limit"));
                     ui.add(egui::Slider::new(seed, 0.0..=1e8).integer().text("Seed"));
-                    ui.add(egui::Slider::new(num_of_walkers, 1.0..=1e2).integer().text("Number of walkers"));
+                    ui.add(egui::Slider::new(num_of_walkers, 1.0..=200.0).integer().text("Number of walkers"));
                     if ui.add(egui::Button::new("Create walker")).clicked(){
                         let pcg = rand_pcg::Pcg64::seed_from_u64(*seed as u64);
                         let seed_iter = Uniform::new_inclusive(0, u64::MAX);
-                    
+                        *current_time = 0.0;
+                        let capacity = *step_limit as usize;
                         *walker = Some(
                             seed_iter.sample_iter(pcg)
                                 .take(*num_of_walkers as usize)
                                 .map(
                                     |seed|
                                     {
-                                        RandomWalker::new(seed)
+                                        RandomWalker::with_capacity(seed, capacity)
                                     }
                                 ).collect()
                         );
+                        mesh_change_tracker.request_redraw();
                     
                         *average = AverageDistance::default();
                     }
@@ -175,8 +190,18 @@ impl eframe::App for TemplateApp {
                     ui.add(egui::Slider::new(strength_of_bias, 0.0..=0.5).logarithmic(true).text("Strength of Bias"));
                 
                     if let Some(walker) = walker{
-                        ui.add(egui::Slider::new(display_walker_id, 0.0..=((walker.len()-1) as f32)).integer().text("Display Walker"));
+                        if ui
+                            .add(egui::Slider::new(display_walker_id, 0.0..=((walker.len()-1) as f32))
+                            .integer()
+                            .text("Display Walker"))
+                            .changed(){
+                            
+                            mesh_change_tracker.request_redraw();
+                        }
                     }
+
+                    ui.radio_value(perfomance_hint, PerformanceHint::PrioritizeOptics, "Priority: Optics");
+                    ui.radio_value(perfomance_hint, PerformanceHint::PrioritizePerformance, "Priority: Performance");
                 
                     let old = *current_time as u64;
                     *current_time += *speed;
@@ -230,13 +255,17 @@ impl eframe::App for TemplateApp {
 
                                         match radio{
                                             RadioState::NoBias => {
-                                                for walker in walker_vec.iter_mut(){
-                                                    if walker.history.len() < *step_limit as usize{
-                                                        for _ in 0..do_steps{
-                                                            walker.random_step();
+                                                walker_vec.par_iter_mut()
+                                                    .for_each(
+                                                        |walker|
+                                                        {
+                                                            if walker.history.len() < *step_limit as usize{
+                                                                for _ in 0..do_steps{
+                                                                    walker.random_step();
+                                                                }
+                                                            }
                                                         }
-                                                    }
-                                                }
+                                                    );
                                             },
                                             _ => {
                                                 let step_fun = match radio {
@@ -245,22 +274,26 @@ impl eframe::App for TemplateApp {
                                                     _ => unreachable!()
                                                 };
 
-                                                for walker in walker_vec.iter_mut(){
-                                                    if walker.history.len() < *step_limit as usize{
-                                                        for _ in 0..do_steps{
-                                                            step_fun(walker, *strength_of_bias);
+                                                walker_vec.par_iter_mut()
+                                                    .for_each(
+                                                        |walker|
+                                                        {
+                                                            if walker.history.len() < *step_limit as usize{
+                                                                for _ in 0..do_steps{
+                                                                    step_fun(walker, *strength_of_bias);
+                                                                }
+                                                            }
                                                         }
-                                                    }
-                                                }
+                                                    );
                                             }
                                         };
 
                                         
-                                        if do_steps > 0 && average.average_distance.len() < *step_limit as usize {
+                                        if do_steps > 0 && average.average_distance_plot_data.len() < *step_limit as usize {
                                             average.update_on_step_of_walkers(do_steps as usize, walker_vec);
                                         }
                                         
-                                        let mesh = if do_steps > 0 || old_mesh.is_none() {
+                                        let mesh = if mesh_change_tracker.check_if_needs_redraw(*speed, *perfomance_hint) || old_mesh.is_none() {
                                             let mesh = crate::animation::calc_mesh(
                                                 &walker_vec[idx], 
                                                 canvas_size, 
@@ -269,10 +302,30 @@ impl eframe::App for TemplateApp {
                                                 *color1_gradient,
                                                 *color2
                                             );
+                                            
+                                            let total_steps = walker_vec[idx].history.len();
+                                            mesh_change_tracker.redraw_finished(total_steps);
                                             *old_mesh = Some(mesh.clone());
                                             mesh
                                         } else {
-                                            old_mesh.as_ref().unwrap().clone()
+                                            let saved_mesh = old_mesh.as_mut().unwrap();
+                                            let old_steps = mesh_change_tracker.get_current_step();
+                                            let new_steps = walker_vec[idx].history.len();
+                                            if old_steps != new_steps{
+                                                crate::animation::update_mesh(
+                                                    saved_mesh, 
+                                                    old_steps, 
+                                                    &walker_vec[idx], 
+                                                    canvas_size, 
+                                                    *zoom, 
+                                                    *color1, 
+                                                    *color1_gradient, 
+                                                    *color2
+                                                );
+                                                mesh_change_tracker.new_steps(new_steps);
+                                            }
+                                            
+                                            saved_mesh.clone()
                                         };
         
                                         painter.add(mesh);
@@ -296,14 +349,30 @@ impl eframe::App for TemplateApp {
                                 }
                             ).collect();
                         
+
                         
-                        let distance: PlotPoints = walker_vec[idx]
-                            .history
-                            .distance_from_origin
-                            .iter()
-                            .enumerate()
-                            .map(|(index, dist)| [index as f64, *dist])
-                            .collect();
+                        
+                        let distance: Vec<PlotPoint> = match *perfomance_hint{
+                            PerformanceHint::PrioritizeOptics => {
+                                walker_vec[idx]
+                                    .history
+                                    .distance_from_origin
+                                    .par_iter()
+                                    .enumerate()
+                                    .map(|(index, dist)| PlotPoint { x: index as f64, y: *dist })
+                                    .collect()
+                            },
+                            _ => {
+                                walker_vec[idx]
+                                    .history
+                                    .distance_from_origin
+                                    .par_iter()
+                                    .enumerate()
+                                    .step_by(100)
+                                    .map(|(index, dist)| PlotPoint { x: index as f64, y: *dist })
+                                    .collect()
+                            }
+                        };
 
                         ui.vertical_centered(
                             |ui|
@@ -316,19 +385,23 @@ impl eframe::App for TemplateApp {
                                     ui, 
                                     |plot_ui|
                                     {
-                                        let line = Line::new(distance)
+                                        let line = Line::new(PlotPoints::Owned(distance))
                                             .name(format!("walker {idx}"))
                                             .color(*color2);
                                         plot_ui.line(line);
 
-                                        let average_distance: PlotPoints = average
-                                            .average_distance
-                                            .iter()
-                                            .enumerate()
-                                            .map(|(index, dist)| [index as f64, *dist])
-                                            .collect();
+                                        let average_distance = match *perfomance_hint
+                                        {
+                                            PerformanceHint::PrioritizeOptics => {
+                                                average
+                                                    .cloned_average()
+                                            },
+                                            _ => {
+                                                average.get_approximation()
+                                            }
+                                        };
 
-                                        let line = Line::new(average_distance).name("average");
+                                        let line = Line::new(PlotPoints::Owned(average_distance)).name("average");
                                         plot_ui.line(line);
                                         let analytical_line = Line::new(analytical).name("analytical Results");
                                         plot_ui.line(analytical_line);

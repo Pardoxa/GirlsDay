@@ -1,4 +1,5 @@
 
+use egui::plot::PlotPoint;
 use rand_pcg::Pcg64;
 use rand::prelude::*;
 
@@ -22,6 +23,14 @@ pub struct History{
 impl History{
     pub fn new() -> Self{
         Self::default()
+    }
+
+    pub fn with_capacity(capacity: usize) -> Self
+    {
+        Self{
+            vec: Vec::with_capacity(capacity),
+            distance_from_origin: Vec::with_capacity(capacity)
+        }
     }
 
     pub fn is_empty(&self) -> bool {
@@ -79,9 +88,13 @@ impl RandomWalker
     /// Sie Können diese funktion z.B. mit RandomWalker::new(1231) aufrufen,
     /// wobei 1231 dann als seed verwendet wird
     pub fn new(seed: u64) -> Self {
+        Self::with_capacity(seed, 100000)
+    }
+
+    pub fn with_capacity(seed: u64, capacity: usize) -> Self{
         Self { 
             ort: Position { x: 0, y: 0 },
-            history: History::new(), 
+            history: History::with_capacity(capacity), 
             rng: Pcg64::seed_from_u64(seed)
         }
     }
@@ -202,10 +215,22 @@ impl RandomWalker
 
 #[derive(Debug, Default, Clone)]
 pub struct AverageDistance{
-    pub average_distance: Vec<f64>
+    pub average_distance_plot_data: Vec<PlotPoint>
 }
 
 impl AverageDistance{
+
+    pub fn push_averages(&mut self, averages: &[f64]){
+        let start = self.average_distance_plot_data.len();
+        self.average_distance_plot_data
+            .extend(
+                averages
+                    .iter()
+                    .zip(start..)
+                    .map(|(y, x)| PlotPoint{x: x as f64, y: *y})
+            );
+    }
+
     pub fn update_on_step_of_walkers(&mut self, number_of_steps: usize, walkers: &[RandomWalker])
     {
         let mut sums = vec![0.0; number_of_steps];
@@ -222,6 +247,20 @@ impl AverageDistance{
         
         sums.iter_mut()
             .for_each(|val| *val /= num_of_walkers as f64);
-        self.average_distance.append(&mut sums);
+        self.push_averages(&sums);
+    }
+
+    pub fn cloned_average(&self) -> Vec<PlotPoint>
+    {
+        self.average_distance_plot_data.clone()
+    }
+
+    pub fn get_approximation(&self) -> Vec<PlotPoint>
+    {
+        self.average_distance_plot_data
+            .iter()
+            .step_by(100)
+            .copied()
+            .collect()
     }
 }
