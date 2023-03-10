@@ -185,7 +185,10 @@ impl eframe::App for TemplateApp {
                             mesh_change_tracker.request_redraw();
                     }
                     ui.add(egui::Slider::new(speed, 0.001..=2000.0).logarithmic(true).text("Geschwindigkeit"));
-                    ui.add(egui::Slider::new(canvas_size, 0.0..=1.0).text("Bildgröße"));
+                    if ui.add(egui::Slider::new(canvas_size, 0.0..=1.0).text("Bildgröße"))
+                        .changed(){
+                        mesh_change_tracker.request_redraw();
+                    }
                     ui.add(
                         egui::Slider::new(step_limit, 1..=500000)
                             .text("Schritt-limit")
