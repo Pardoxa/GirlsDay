@@ -6,7 +6,11 @@ use egui::{
         Color32, 
         Vec2,
         Sense
-    }, Mesh, plot::{Plot, Legend, PlotPoints, PlotPoint, Line},
+    }, 
+    Mesh, 
+    plot::*, 
+    Button,
+    Visuals
 };
 use rand::SeedableRng;
 use rand_pcg::Pcg64;
@@ -20,6 +24,12 @@ pub enum RadioState{
     BiasedTowardsOrigin,
     BiasedAwayFromOrigin,
     YourFunction
+}
+
+#[derive(PartialEq)]
+pub enum LightMode{
+    Light,
+    Dark
 }
 
 
@@ -42,7 +52,8 @@ pub struct TemplateApp {
     radio: RadioState,
     strength_of_bias: f64,
     mesh_change_tracker: MeshChangeTracker,
-    perfomance_hint: PerformanceHint
+    perfomance_hint: PerformanceHint,
+    light_mode: LightMode
 }
 
 impl Default for TemplateApp {
@@ -67,7 +78,8 @@ impl Default for TemplateApp {
             radio: RadioState::NoBias,
             strength_of_bias: 0.1,
             mesh_change_tracker: MeshChangeTracker::new(),
-            perfomance_hint: PerformanceHint::PrioritizeOptics
+            perfomance_hint: PerformanceHint::PrioritizeOptics,
+            light_mode: LightMode::Dark
         }
     }
 }
@@ -116,7 +128,8 @@ impl eframe::App for TemplateApp {
             radio,
             strength_of_bias,
             mesh_change_tracker,
-            perfomance_hint
+            perfomance_hint,
+            light_mode
         } = self;
         // Examples of how to create different panels and windows.
         // Pick whichever suits you.
@@ -128,11 +141,41 @@ impl eframe::App for TemplateApp {
         egui::SidePanel::left("side_panel")
             .default_width(300.0)
             .show(ctx, |ui| {
+
+                ui.horizontal(
+                    |ui|
+                    {
+                        match light_mode{
+                            LightMode::Dark => {
+                                if ui.add(
+                                     Button::new("☀").frame(false)
+                                 ).on_hover_text("Wechsel in den hellen Modus")
+                                 .clicked(){
+                                    ui.ctx().set_visuals(Visuals::light());
+                                    *light_mode = LightMode::Light;
+                                }
+                            },
+                            LightMode::Light => {
+                                if ui.add(
+                                     Button::new("🌙").frame(false)
+                                 ).on_hover_text("Wechsel in den Dunklen Modus")
+                                 .clicked(){
+                                    ui.ctx().set_visuals(Visuals::dark());
+                                    *light_mode = LightMode::Dark;
+                                }
+                            }
+                        }
+
+                        ui.heading("\t\tEinstellungen");
+                    }
+                );
+
+
+
             egui::ScrollArea::both().show(
                 ui,
                 |ui|
                 {
-                    ui.heading("Configurations");
 
                     if ui.add(egui::Slider::new(zoom, 20.0..=3000.0)
                         .integer()
@@ -140,22 +183,25 @@ impl eframe::App for TemplateApp {
                         .changed(){
                             mesh_change_tracker.request_redraw();
                     }
-                    ui.add(egui::Slider::new(speed, 0.001..=2000.0).logarithmic(true).text("Speed"));
-                    ui.add(egui::Slider::new(canvas_size, 0.0..=1.0).text("Canvas Size"));
+                    ui.add(egui::Slider::new(speed, 0.001..=2000.0).logarithmic(true).text("Geschwindigkeit"));
+                    ui.add(egui::Slider::new(canvas_size, 0.0..=1.0).text("Bildgröße"));
                     ui.add(
                         egui::Slider::new(step_limit, 1..=2000000)
-                            .text("Step limit")
+                            .text("Schritt-limit")
                             .drag_value_speed(10.0)
-                    );
+                    ).on_hover_text("Haben die Walker dieses Schritt-limit erreicht oder überschritten werden sie pausiert");
                     ui.add(egui::Slider::new(seed, 0..=10000)
                         .text("Seed")
                         .drag_value_speed(1.0)
                     );
                     ui.add(egui::Slider::new(num_of_walkers, 1..=200)
-                        .text("Number of walkers")
+                        .text("Anzahl an Walkern")
                         .drag_value_speed(0.5)
                     );
-                    if ui.add(egui::Button::new("Create walker")).clicked(){
+                    if ui.add(egui::Button::new("Erschaffe einen Walker"))
+                        .on_hover_text("Startet die Simulation. Läuft schon eine Simulation so wird sie verworfen und mit den aktuellen Einstellungen wird eine neue gestartet.")
+                        .clicked()
+                    {
                         let mut pcg = rand_pcg::Pcg64::seed_from_u64(*seed);
                         *current_time = 0.0;
                         let capacity = *step_limit as usize;
@@ -178,33 +224,36 @@ impl eframe::App for TemplateApp {
                     ui.horizontal(
                         |ui|
                         {
-                            ui.label("Pick color 1");
+                            ui.label("Farbe 1");
                             egui::color_picker::color_edit_button_srgba(ui, color1, egui::color_picker::Alpha::Opaque);
                         }
                     );
                     ui.horizontal(
                         |ui|
                         {
-                            ui.label("Pick color 2");
+                            ui.label("Farbe 2");
                             egui::color_picker::color_edit_button_srgba(ui, color1_gradient, egui::color_picker::Alpha::Opaque);
                         }
                     );
                     ui.horizontal(
                         |ui|
                         {
-                            ui.label("Pick color 3");
+                            ui.label("Farbe 3");
                             egui::color_picker::color_edit_button_srgba(ui, color2, egui::color_picker::Alpha::Opaque);
                         }
                     );
-                
-                    ui.radio_value(radio, RadioState::NoBias, "No Bias");
-                    ui.radio_value(radio, RadioState::BiasedAwayFromOrigin, "Bias away from Origin");
-                    ui.radio_value(radio, RadioState::BiasedTowardsOrigin, "Bias towards Origin");
-                    ui.radio_value(radio, RadioState::YourFunction, "Your function");
+                    ui.radio_value(radio, RadioState::NoBias, "Normaler Random Walk")
+                        .on_hover_text("Ist diese Option ausgewählt wird ein 'normaler' random walk ausgeführt. D.h. die Wahrscheinlichkeit für den Walker nach oben, unten, rechts oder links zu gehen ist identisch.");
+                    ui.radio_value(radio, RadioState::BiasedAwayFromOrigin, "Bias - weg vom Ursprung")
+                        .on_hover_text("Ist diese Option ausgewählt wird ein gebiaster random walk ausgeführt. Schritte die vom ursprung wegführen werden preferiert. Wie stark diese Präferenz ist hängt vom Bias ab.");
+                    ui.radio_value(radio, RadioState::BiasedTowardsOrigin, "Bias - zum Ursprung hin")
+                        .on_hover_text("Ist diese Option ausgewählt wird ein gebiaster random walk ausgeführt. Schritte die zum ursprung hinführen werden preferiert. Wie stark diese Präferenz ist hängt vom Bias ab.");
+                    ui.radio_value(radio, RadioState::YourFunction, "Deine Funktion")
+                        .on_hover_text("Du hast eine eigene Idee für einen Random Walker? Perfekt. Du kannst sie implementieren und hier auswählen");
                     ui.add(
                         egui::Slider::new(strength_of_bias, 0.0..=0.5)
                         .logarithmic(true)
-                        .text("Strength of Bias")
+                        .text("Bias")
                         .smallest_positive(0.0005)
                     );
                 
@@ -212,15 +261,17 @@ impl eframe::App for TemplateApp {
                         if ui
                             .add(egui::Slider::new(display_walker_id, 0..=(walker.len()-1))
                             .drag_value_speed(0.5)
-                            .text("Display Walker"))
+                            .text("Walker im Fokus"))
                             .changed(){
                             
                             mesh_change_tracker.request_redraw();
                         }
                     }
 
-                    ui.radio_value(perfomance_hint, PerformanceHint::PrioritizeOptics, "Priority: Optics");
-                    ui.radio_value(perfomance_hint, PerformanceHint::PrioritizePerformance, "Priority: Performance");
+                    ui.radio_value(perfomance_hint, PerformanceHint::PrioritizeOptics, "Priorität: Optik")
+                        .on_hover_text("Dies wird das Bild bei jedem Schritt sanft umfärben und alle Schritte für das Diagramm verwenden");
+                    ui.radio_value(perfomance_hint, PerformanceHint::PrioritizePerformance, "Priorität: Leistung")
+                        .on_hover_text("Dies wird das Bild nur gelegentlich umfärben und nur jeden 100. Punkt im Diagramm verwenden");
                 
                     let old = *current_time as u64;
                     *current_time += *speed;
@@ -397,10 +448,13 @@ impl eframe::App for TemplateApp {
                         ui.vertical_centered(
                             |ui|
                             {
-                                ui.label("Distance from Origin");
+                                ui.label("Abstand vom Urspurng");
+
+                                let hight = ui.available_height();
                                 Plot::new("plot_average_etc")
                                 .include_x(0.0)
                                 .legend(Legend::default())
+                                .height(hight - 25.0)
                                 .show(
                                     ui, 
                                     |plot_ui|
@@ -409,6 +463,7 @@ impl eframe::App for TemplateApp {
                                             .name(format!("walker {idx}"))
                                             .color(*color2);
                                         plot_ui.line(line);
+                                        
 
                                         let average_distance = match *perfomance_hint
                                         {
@@ -425,9 +480,16 @@ impl eframe::App for TemplateApp {
                                         plot_ui.line(line);
                                         let analytical_line = Line::new(analytical).name("analytical Results");
                                         plot_ui.line(analytical_line);
-
+                                        
+                                        //let y = plot_ui.plot_bounds().max()[1];
+                                        //let x = plot_ui.plot_bounds().max()[0];
+                                        //
+                                        //let text = egui::plot::Text::new(PlotPoint { x: x / 20.0, y: y / 2.0 }, "d")
+                                        //    .anchor(Align2::LEFT_CENTER);
+                                        //plot_ui.text(text);
                                     }
                                 );
+                                ui.label("Steps");
                             }
                         );
 
