@@ -95,8 +95,6 @@ pub fn update_mesh(
     walker: &RandomWalker,
     canvas_size: Rect,
     zoom: f32,
-    color: Color32,
-    col1_grad: Color32,
     color2: Color32
 )
 {
@@ -139,30 +137,12 @@ pub fn update_mesh(
         );
     };
 
-    let total = 1.0 / (walker.history.len() as f32);
-
-    let red_dist = (col1_grad.r() as i16 - color.r() as i16) as f32;
-    let blue_dist = (col1_grad.b() as i16 - color.b() as i16) as f32;
-    let green_dist = (col1_grad.g() as i16 - color.g() as i16) as f32;
-
-    let r = color.r() as f32;
-    let b = color.b() as f32;
-    let g = color.g() as f32;
-
-
-    for (pos, i) in walker.history.vec[old_total-1..].iter().zip(old_total..)
+    for pos in walker.history.vec[old_total-1..].iter()
     {
-        let p = i as f32 * total;
-        let red: u8 = (r + p * red_dist) as u8;
-        let green = (g + p * green_dist) as u8;
-        let blue = (b + p * blue_dist) as u8;
-
-        let col = Color32::from_rgb(red, green, blue);
-
         add_to_mesh(
             pos.x,
             pos.y,
-            col
+            color2
         );
     }
 

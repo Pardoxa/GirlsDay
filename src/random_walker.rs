@@ -17,7 +17,7 @@ pub struct Position{
 #[derive(Debug, Clone, Default)]
 pub struct History{
     pub vec: Vec<Position>,
-    pub distance_from_origin: Vec<f64>
+    pub distance_from_origin: Vec<f32>
 }
 
 impl History{
@@ -44,7 +44,7 @@ impl History{
 
     pub fn push(&mut self, pos: Position)
     {
-        let distance_from_origin = ((pos.x * pos.x + pos.y*pos.y) as f64).sqrt();
+        let distance_from_origin = ((pos.x * pos.x + pos.y*pos.y) as f32).sqrt();
         self.vec.push(pos);
         self.distance_from_origin.push(distance_from_origin);
     }
@@ -255,14 +255,14 @@ pub struct AverageDistance{
 
 impl AverageDistance{
 
-    pub fn push_averages(&mut self, averages: &[f64]){
+    pub fn push_averages(&mut self, averages: &[f32]){
         let start = self.average_distance_plot_data.len();
         self.average_distance_plot_data
             .extend(
                 averages
                     .iter()
                     .zip(start..)
-                    .map(|(y, x)| PlotPoint{x: x as f64, y: *y})
+                    .map(|(y, x)| PlotPoint{x: x as f64, y: *y as f64})
             );
     }
 
@@ -281,7 +281,7 @@ impl AverageDistance{
         }
         
         sums.iter_mut()
-            .for_each(|val| *val /= num_of_walkers as f64);
+            .for_each(|val| *val /= num_of_walkers as f32);
         self.push_averages(&sums);
     }
 

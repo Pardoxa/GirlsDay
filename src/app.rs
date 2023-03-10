@@ -68,7 +68,7 @@ impl Default for TemplateApp {
             canvas_size: 0.6,
             old_mesh: None,
             step_limit: 100000,
-            seed: 2391,
+            seed: 2598,
             display_walker_id: 0,
             num_of_walkers: 10,
             average: AverageDistance::default(),
@@ -86,7 +86,7 @@ impl Default for TemplateApp {
 
 impl TemplateApp {
     /// Called once before the first frame.
-    pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         // This is also where you can customize the look and feel of egui using
         // `cc.egui_ctx.set_visuals` and `cc.egui_ctx.set_fonts`.
 
@@ -95,6 +95,7 @@ impl TemplateApp {
         //if let Some(storage) = cc.storage {
         //    return eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
         //}
+        cc.egui_ctx.set_visuals(Visuals::dark());
         Default::default()
     }
 }
@@ -186,7 +187,7 @@ impl eframe::App for TemplateApp {
                     ui.add(egui::Slider::new(speed, 0.001..=2000.0).logarithmic(true).text("Geschwindigkeit"));
                     ui.add(egui::Slider::new(canvas_size, 0.0..=1.0).text("Bildgröße"));
                     ui.add(
-                        egui::Slider::new(step_limit, 1..=2000000)
+                        egui::Slider::new(step_limit, 1..=500000)
                             .text("Schritt-limit")
                             .drag_value_speed(10.0)
                     ).on_hover_text("Haben die Walker dieses Schritt-limit erreicht oder überschritten werden sie pausiert");
@@ -198,13 +199,14 @@ impl eframe::App for TemplateApp {
                         .text("Anzahl an Walkern")
                         .drag_value_speed(0.5)
                     );
-                    if ui.add(egui::Button::new("Erschaffe einen Walker"))
+                    if ui.add(egui::Button::new(format!("Erschaffe {num_of_walkers} Walker")))
                         .on_hover_text("Startet die Simulation. Läuft schon eine Simulation so wird sie verworfen und mit den aktuellen Einstellungen wird eine neue gestartet.")
                         .clicked()
                     {
                         let mut pcg = rand_pcg::Pcg64::seed_from_u64(*seed);
                         *current_time = 0.0;
                         let capacity = *step_limit as usize;
+                        *walker = None; // Force rust to deallocate the old vectors before allocating new ones!
                         *walker = Some(
                             (0..*num_of_walkers)
                                 .map(
@@ -362,6 +364,9 @@ impl eframe::App for TemplateApp {
                                         
                                         if do_steps > 0 && average.average_distance_plot_data.len() < *step_limit as usize {
                                             average.update_on_step_of_walkers(do_steps as usize, walker_vec);
+                                            if perfomance_hint == &PerformanceHint::PrioritizeOptics{
+                                                mesh_change_tracker.request_redraw();   
+                                            }
                                         }
                                         
                                         let mesh = if mesh_change_tracker.check_if_needs_redraw(*speed, *perfomance_hint) || old_mesh.is_none() {
@@ -373,7 +378,6 @@ impl eframe::App for TemplateApp {
                                                 *color1_gradient,
                                                 *color2
                                             );
-                                            
                                             let total_steps = walker_vec[idx].history.len();
                                             mesh_change_tracker.redraw_finished(total_steps);
                                             *old_mesh = Some(mesh.clone());
@@ -389,11 +393,12 @@ impl eframe::App for TemplateApp {
                                                     &walker_vec[idx], 
                                                     canvas_size, 
                                                     *zoom, 
-                                                    *color1, 
-                                                    *color1_gradient, 
                                                     *color2
                                                 );
                                                 mesh_change_tracker.new_steps(new_steps);
+                                                if new_steps >= *step_limit as usize {
+                                                    mesh_change_tracker.request_redraw();
+                                                }
                                             }
                                             
                                             saved_mesh.clone()
@@ -430,7 +435,7 @@ impl eframe::App for TemplateApp {
                                     .distance_from_origin
                                     .par_iter()
                                     .enumerate()
-                                    .map(|(index, dist)| PlotPoint { x: index as f64, y: *dist })
+                                    .map(|(index, dist)| PlotPoint { x: index as f64, y: *dist as f64})
                                     .collect()
                             },
                             _ => {
@@ -440,7 +445,7 @@ impl eframe::App for TemplateApp {
                                     .par_iter()
                                     .enumerate()
                                     .step_by(100)
-                                    .map(|(index, dist)| PlotPoint { x: index as f64, y: *dist })
+                                    .map(|(index, dist)| PlotPoint { x: index as f64, y: *dist as f64 })
                                     .collect()
                             }
                         };
