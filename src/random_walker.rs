@@ -239,20 +239,24 @@ impl AverageDistance{
 
             Seitdem der Durchschnitt das letzte mal berechnet wurde sind 
             number_of_steps Schritte gemacht worden.
+            Wir wollen für jeden dieser Schritte den Durchschnitt berechnen.
             
             Jeder Walker speichert in jedem Schritt die Distanz vom Ursprung.
             Von walker 0 kann die Änderung des ersten noch nicht getrackten Schrittes z.B. ausgelesen werden durch 
-            walkers[0][idx_start]
+            walkers[0].history.distance_from_origin[idx_start];
             wobei die 0 den 0ten Walker auswählt und idx_start der Index des auszulesenden Schrittes ist,
             der Schritt danach (Achtung, nur wenn er existiert!) wäre also:
-            walkers[0][idx_start + 1]
+            walkers[0].history.distance_from_origin[idx_start + 1];
 
             nun soll die summe für jeden einzelnen Zeitschritt berechnet werden.
             Dazu kann der Vektor `sums` verwendet werden, der schon die richtige länge hat und 
             am Anfang nur mit 0en gefüllt ist.
 
             Für den ersten nicht getrackten Zeitschritt ist also zu berechnen:
-            sums[0] += walkers[0][idx_start] + walkers[1][idx_start] + … + walkers[num_of_walkers - 1][idx_start]
+            sums[0] += walkers[0].history.distance_from_origin[idx_start] 
+                + walkers[1].history.distance_from_origin[idx_start]  
+                + …
+                + walkers[num_of_walkers - 1].history.distance_from_origin[idx_start + 1];
             (Die -1 weil wir in der Informatik gerne bei 0 anfangen zu zählen)
 
             Nutzt dafür einen for loop.

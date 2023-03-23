@@ -45,6 +45,7 @@ pub struct TemplateApp {
     seed: u64,
     display_walker_id: usize,
     num_of_walkers: usize,
+    pause: bool,
     average: AverageDistance,
     color1: Color32,
     color1_gradient: Color32,
@@ -79,7 +80,8 @@ impl Default for TemplateApp {
             strength_of_bias: 0.1,
             mesh_change_tracker: MeshChangeTracker::new(),
             perfomance_hint: PerformanceHint::PrioritizeOptics,
-            light_mode: LightMode::Dark
+            light_mode: LightMode::Dark,
+            pause: false
         }
     }
 }
@@ -130,7 +132,8 @@ impl eframe::App for TemplateApp {
             strength_of_bias,
             mesh_change_tracker,
             perfomance_hint,
-            light_mode
+            light_mode,
+            pause
         } = self;
         // Examples of how to create different panels and windows.
         // Pick whichever suits you.
@@ -226,6 +229,16 @@ impl eframe::App for TemplateApp {
                     
                         *average = AverageDistance::default();
                     }
+                    let btn_text = if *pause{
+                        "Fortfahren"
+                    } else{
+                        "Pausieren"
+                    };
+                    if ui.add(egui::Button::new(btn_text))
+                        .clicked()
+                    {
+                        *pause = !*pause;        
+                    }
                     ui.horizontal(
                         |ui|
                         {
@@ -281,10 +294,13 @@ impl eframe::App for TemplateApp {
                     ui.radio_value(perfomance_hint, PerformanceHint::PrioritizePerformance, "Priorität: Leistung")
                         .on_hover_text("Dies wird das Bild nur gelegentlich umfärben und nur jeden 100. Punkt im Diagramm verwenden");
                 
-                    let old = *current_time as u64;
-                    *current_time += *speed;
-                    let new = *current_time as u64;
-                    do_steps = new - old;
+                    if !*pause{
+                        let old = *current_time as u64;
+                        *current_time += *speed;
+                        let new = *current_time as u64;
+                        do_steps = new - old;
+                    }
+
 
                     egui::warn_if_debug_build(ui);
                 }
