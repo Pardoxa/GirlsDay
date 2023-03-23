@@ -231,6 +231,7 @@ impl eframe::App for TemplateApp {
                         {
                             ui.label("Farbe 1");
                             egui::color_picker::color_edit_button_srgba(ui, color1, egui::color_picker::Alpha::Opaque);
+                            mesh_change_tracker.request_redraw();
                         }
                     );
                     ui.horizontal(
@@ -238,6 +239,7 @@ impl eframe::App for TemplateApp {
                         {
                             ui.label("Farbe 2");
                             egui::color_picker::color_edit_button_srgba(ui, color1_gradient, egui::color_picker::Alpha::Opaque);
+                            mesh_change_tracker.request_redraw();
                         }
                     );
                     ui.horizontal(
@@ -245,6 +247,7 @@ impl eframe::App for TemplateApp {
                         {
                             ui.label("Farbe 3");
                             egui::color_picker::color_edit_button_srgba(ui, color2, egui::color_picker::Alpha::Opaque);
+                            mesh_change_tracker.request_redraw();
                         }
                     );
                     ui.radio_value(radio, RadioState::NoBias, "Normaler Random Walk")
