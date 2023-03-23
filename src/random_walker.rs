@@ -139,7 +139,7 @@ impl RandomWalker
         let alter_ort = self.ort.clone();
 
         if probability > 0.5{
-           #[allow(clippy::comparison_chain)]
+           
             let prob_p = if self.ort.x == 0{
                 0.5
             }else if self.ort.x > 0 {
@@ -155,7 +155,7 @@ impl RandomWalker
             }
 
         } else {
-            #[allow(clippy::comparison_chain)]
+            
             let prob_p = if self.ort.y == 0{
                 0.5
             }else if self.ort.y > 0 {
@@ -179,7 +179,7 @@ impl RandomWalker
         let alter_ort = self.ort.clone();
 
         if probability > 0.5{
-           #[allow(clippy::comparison_chain)]
+           
             let prob_p = if self.ort.x == 0{
                 0.5
             }else if self.ort.x > 0 {
@@ -195,7 +195,7 @@ impl RandomWalker
             }
 
         } else {
-            #[allow(clippy::comparison_chain)]
+            
             let prob_p = if self.ort.y == 0{
                 0.5
             }else if self.ort.y > 0 {
