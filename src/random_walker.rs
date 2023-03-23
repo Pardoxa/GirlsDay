@@ -1,4 +1,3 @@
-
 use egui::plot::PlotPoint;
 use rand_pcg::Pcg64;
 use rand::prelude::*;
@@ -121,15 +120,20 @@ impl RandomWalker
         let probability = self.get_random_number();
         let alter_ort = self.ort.clone();
 
-        if probability <= 0.25 {
+        /*
+            TODO
+            Der random walker soll mit jeweils gleicher Wahrscheinlichkeit 
+            nach oben, unten, rechts oder links laufen.
+
+            Die x-Position kann mit:
             self.ort.x += 1;
-        } else if probability <= 0.5 {
-            self.ort.x -= 1;
-        } else if probability <= 0.75{
+            angepasst werden.
+
+            Die y-Position kann mit 
             self.ort.y += 1;
-        } else {
-            self.ort.y -= 1;
-        }
+            angepasst werden.
+
+         */
         self.history.push(alter_ort);
     }
 
@@ -138,38 +142,21 @@ impl RandomWalker
         let probability = self.get_random_number();
         let alter_ort = self.ort.clone();
 
-        if probability > 0.5{
-           
-            let prob_p = if self.ort.x == 0{
-                0.5
-            }else if self.ort.x > 0 {
-                0.5+strength_of_bias
-            } else {
-                0.5-strength_of_bias
-            };
-            let prob = self.get_random_number();
-            if prob < prob_p {
-                self.ort.x += 1;
-            } else {
-                self.ort.x -= 1;
-            }
+        /*
+            TODO
+            Dieser Schritt ist vom Ursprung weg gebiased.
 
-        } else {
-            
-            let prob_p = if self.ort.y == 0{
-                0.5
-            }else if self.ort.y > 0 {
-                0.5 + strength_of_bias
-            } else {
-                0.5 - strength_of_bias
-            };
-            let prob = self.get_random_number();
-            if prob < prob_p {
-                self.ort.y += 1;
-            } else {
-                self.ort.y -= 1;
-            }
-        }
+            Mit einer Wahrscheinlichkeit von 50% soll ein 
+            y-Schritt gemacht werden. Ansonsten wird ein 
+            x-Schritt gemacht.
+
+            Wenn ein x-Schritt gemacht wird,
+            ist die Wahrscheinlichkeit dass dieser vom Ursprung wegführt (sofern x != 0) bei 
+            0.5+strength_of_bias
+
+            Analog für y
+        
+        */
         self.history.push(alter_ort);
     }
 
@@ -178,38 +165,21 @@ impl RandomWalker
         let probability = self.get_random_number();
         let alter_ort = self.ort.clone();
 
-        if probability > 0.5{
-           
-            let prob_p = if self.ort.x == 0{
-                0.5
-            }else if self.ort.x > 0 {
-                0.5 - strength_of_bias
-            } else {
-                0.5 + strength_of_bias
-            };
-            let prob = self.get_random_number();
-            if prob < prob_p {
-                self.ort.x += 1;
-            } else {
-                self.ort.x -= 1;
-            }
+        /*
+            TODO
+            Dieser Schritt ist zum Ursprung hin gebiased.
 
-        } else {
-            
-            let prob_p = if self.ort.y == 0{
-                0.5
-            }else if self.ort.y > 0 {
-                0.5 - strength_of_bias
-            } else {
-                0.5 + strength_of_bias
-            };
-            let prob = self.get_random_number();
-            if prob < prob_p {
-                self.ort.y += 1;
-            } else {
-                self.ort.y -= 1;
-            }
-        }
+            Mit einer Wahrscheinlichkeit von 50% soll ein 
+            y-Schritt gemacht werden. Ansonsten wird ein 
+            x-Schritt gemacht.
+
+            Wenn ein x-Schritt gemacht wird,
+            ist die Wahrscheinlichkeit dass dieser zum Ursprung hinführt (sofern x != 0) bei 
+            0.5+strength_of_bias
+
+            Analog für y
+        
+        */
         self.history.push(alter_ort);
     }
 
@@ -217,33 +187,22 @@ impl RandomWalker
     {
         let probability = self.get_random_number();
         let alter_ort = self.ort.clone();
-        if probability <= 0.125 {
-            self.ort.x += 1;
-            self.ort.y += 2;
-        } else if probability <= 0.25{
-            
-            self.ort.x += 1;
-            self.ort.y -= 2;
-            
-        } else if probability <= 0.375 {
-            self.ort.x -= 1;
-            self.ort.y -= 2;
-        } else if probability <= 0.5{
-            self.ort.x -= 1;
-            self.ort.y += 2;
-        } else if probability <= 0.625{
-            self.ort.y += 1;
-            self.ort.x += 2;
-        }else if probability <= 0.75{
-            self.ort.y += 1;
-            self.ort.x -= 2;
-        } else if probability <= 0.875 {
-            self.ort.y -= 1;
-            self.ort.x -= 2;
-        }else {
-            self.ort.y -= 1;
-            self.ort.x += 2;
-        }
+        /*
+            TODO
+
+            Hier kannst du dich austoben.
+            Hast du eine eigene Idee für einen Zufallsschritt?
+
+            Anregungen:
+            Vielleicht die Möglichkeit in einem Schritt weiter zu laufen, oder 
+            die diagonalen mitzunehmen?
+            Oder (schwer) keine Felder betreten, auf denen der Walker schon war 
+            (nennt sich self-avoiding random walk)?
+            Oder etwas vollkommen anderes?
+
+            Das kann hier implementiert werden.
+
+        */
         self.history.push(alter_ort);
     }
 }
@@ -271,17 +230,52 @@ impl AverageDistance{
         let mut sums = vec![0.0; number_of_steps];
         let idx_start = walkers[0].history.len() - number_of_steps;
         let num_of_walkers = walkers.len();
+        let num_of_walkers_float = num_of_walkers as f32;
+        /*
+            TODO
 
-        for walker in walkers{
-            let new_additions_slice = &walker.history.distance_from_origin[idx_start..];
-            for i in 0..sums.len()
-            {
-                sums[i] += new_additions_slice[i];
+            Zum plotten des Durchschnitts (Distanz vom Ursprung) muss der Durchschnitt berechnet werden.
+            Das soll hier passieren.
+
+            Seitdem der Durchschnitt das letzte mal berechnet wurde sind 
+            number_of_steps Schritte gemacht worden.
+            
+            Jeder Walker speichert in jedem Schritt die Distanz vom Ursprung.
+            Von walker 0 kann die Änderung des ersten noch nicht getrackten Schrittes z.B. ausgelesen werden durch 
+            walkers[0][idx_start]
+            wobei die 0 den 0ten Walker auswählt und idx_start der Index des auszulesenden Schrittes ist,
+            der Schritt danach (Achtung, nur wenn er existiert!) wäre also:
+            walkers[0][idx_start + 1]
+
+            nun soll die summe für jeden einzelnen Zeitschritt berechnet werden.
+            Dazu kann der Vektor `sums` verwendet werden, der schon die richtige länge hat und 
+            am Anfang nur mit 0en gefüllt ist.
+
+            Für den ersten nicht getrackten Zeitschritt ist also zu berechnen:
+            sums[0] += walkers[0][idx_start] + walkers[1][idx_start] + … + walkers[num_of_walkers - 1][idx_start]
+            (Die -1 weil wir in der Informatik gerne bei 0 anfangen zu zählen)
+
+            Nutzt dafür einen for loop.
+            Ein for loop von 0 bis num_of_walkers - 1 kann wie folgt geschrieben werden:
+
+            for i in 0..num_of_walkers{
+
             }
-        }
-        
-        sums.iter_mut()
-            .for_each(|val| *val /= num_of_walkers as f32);
+
+            Alternativ (hier nenne ich die Laufvariable mal j):
+            for j in 0..=(num_of_walkers-1){
+
+            }
+            
+            For loops können natürkich auch ineinander verschachtelt werden :)
+
+            Nachdem die Summen der Schritte berechnet wurden muss noch der Durchschnitt berechnet werden, 
+            indem durch die Anzahl an Walkern geteilt wird.
+            Hierzu muss die variable num_of_walkers_float verwendet werden,
+            da Ganze Zahlen (Integer) erst in Rationale Zahlen (Floats)
+            konvertiert werden müssen, damit der Computer sie zusammenrechnen kann
+        */
+
         self.push_averages(&sums);
     }
 
